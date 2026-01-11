@@ -1,0 +1,13 @@
+{
+  "name": "dieta-meal-planner",
+  "version": "1.0.0",
+  "description": "Meal planner for Google Sheets with local testing",
+  "main": "sheet.js",
+  "scripts": {
+    "test": "node test-local.js"
+  },
+  "keywords": ["meal-planner", "google-apps-script"],
+  "author": "",
+  "license": "MIT"
+}
+
