@@ -18,6 +18,7 @@ global.SpreadsheetApp = {
     getActive: () => ({
         getSheetByName: (name) => {
             if (name === 'Meals') return mockMealsSheet;
+            if (name === 'Ingredientes') return mockIngredientsSheet;
             return mockPlanSheet;
         },
         insertSheet: (name) => {
@@ -32,6 +33,17 @@ const mockMealsSheet = {
     getDataRange: () => ({
         getValues: () => {
             const filePath = path.join(__dirname, 'meals.csv');
+            const fileContent = fs.readFileSync(filePath, 'utf8');
+            return fileContent.split('\n').map(line => line.split(','));
+        }
+    })
+};
+
+// Mock Ingredients sheet with sample data
+const mockIngredientsSheet = {
+    getDataRange: () => ({
+        getValues: () => {
+            const filePath = path.join(__dirname, 'ingredients.csv');
             const fileContent = fs.readFileSync(filePath, 'utf8');
             return fileContent.split('\n').map(line => line.split(','));
         }
@@ -83,17 +95,57 @@ try {
     console.log('2. Generating week plan...');
     const startDate = sheetFunctions.getStartOfTheWeek(1);
     const weekPlan = sheetFunctions.generateWeekPlan(meals, startDate);
-    console.log(JSON.stringify(weekPlan, null, 2));
-    const rows = sheetFunctions.convertWeekPlanToRows(weekPlan);
-    console.log(rows);
-    // console.log(`Generated plan for ${weekPlan.length} days\n`);
+    console.log(`Generated plan for ${weekPlan.length} days\n`);
     
-    // // Display the full JSON structure
-    // console.log('3. Week Plan JSON Output:');
-    // console.log(JSON.stringify(weekPlan, null, 2));
+    // Test reading ingredients
+    console.log('3. Reading ingredients from sheet...');
+    const rawIngredients = sheetFunctions.readIngredientsSheet();
+    const ingredients = sheetFunctions.processIngredientsSheet(rawIngredients);
+
+    console.log(`Found ${ingredients.length} ingredient entries\n`);
     
-    // console.log('\n4. Testing first day structure:');
-    // console.log(JSON.stringify(weekPlan[0], null, 2));
+    // Show first few ingredients
+    console.log('Sample ingredients:');
+    ingredients.slice(0, 5).forEach(ing => {
+        console.log(`  - ${ing.mealCode}: ${ing.quantity}${ing.unit} ${ing.name}`);
+    });
+    console.log('');
+    
+    // Test shopping list by day
+    console.log('4. Generating shopping list by day...');
+    const shoppingByDay = sheetFunctions.generateShoppingListGroupedByDay(weekPlan, ingredients);
+    console.log('\n=== SHOPPING LIST BY DAY ===\n');
+    shoppingByDay.forEach(day => {
+        console.log(`\n${day.dayLabel}`);
+        console.log('');
+        if (day.ingredients.length === 0) {
+            console.log('  No hay ingredientes registrados para este día');
+        } else {
+            day.ingredients.forEach(ing => {
+                const quantityStr = ing.quantity > 0 
+                    ? `${ing.quantity}${ing.unit}` 
+                    : ing.unit || 'al gusto';
+                console.log(`  - ${quantityStr} ${ing.name}`);
+            });
+        }
+    });
+    console.log('\n============================\n');
+    
+    // Test shopping list by week (aggregated)
+    console.log('5. Generating shopping list by week (aggregated)...');
+    const shoppingByWeek = sheetFunctions.generateShoppingListAggregated(weekPlan, ingredients);
+    console.log('\n=== SHOPPING LIST BY WEEK ===\n');
+    if (shoppingByWeek.length === 0) {
+        console.log('No hay ingredientes registrados');
+    } else {
+        shoppingByWeek.forEach(ing => {
+            const quantityStr = ing.quantity > 0 
+                ? `${ing.quantity}${ing.unit}` 
+                : ing.unit || 'al gusto';
+            console.log(`- ${quantityStr} ${ing.name}`);
+        });
+    }
+    console.log('\n=============================\n');
     
 } catch (error) {
     console.error('Error:', error.message);

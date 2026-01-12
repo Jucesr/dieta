@@ -1,0 +1,46 @@
+Meal Code,Nombre,Unidad,Cantidad
+C02,Pollo,gramos,150
+C02,Queso fresco,gramos,30
+C02,Cebolla morada,gramos,30
+C02,Espinaca,gramos,25
+C02,Salsa roja,gramos,225
+C02,Tortillas,pieza,4
+C02,Crema dulce,cucharada,2
+D09,Huevo,pieza,2
+D09,Tocino,tiras,2
+C41,Atun,gramos,?
+C41,Arroz,gramos,?
+C41,Pepino,,
+C41,Aguacate,,
+C41,Salsa de soya,,
+C41,Ajonjoli,,
+C41,Espinaca,,
+C32,Tortillas,pieza,4
+C32,Rebana jamon pavo,pieza,2
+C32,Queso mozzarella,gramos,?
+C35,Lentejas,gramos,200
+C35,Verdura congelada,gramos,200
+C35,Ajo,gramos,5
+C01,Pollo,gramos,160
+C01,Tortillas,pieza,4
+C01,Queso mozzarella,gramos,60
+C01,Crema,gramos,30
+C01,Cebolla morada,gramos,30
+C01,Salsa verde,gramos,225
+D02,Huevo,pieza,2
+D02,Chorizo,gramos,30
+C03,Pollo,gramos,180
+C03,Salsa champinion,gramos,225
+D03,Huevo,pieza,2
+D03,Papa,gramos,40
+C26,Pescado,gramos,200
+C26,Harina,gramos,50
+C26,Empanizador,gramos,100
+C26,Huevo,pieza,1
+C06,Tortillas,pieza,6
+C06,Pollo,gramos,200
+C06,Cebolla blanca,gramos,40
+C06,Lechuga,gramos,30
+C06,Crema dulce,cucharada,2
+C06,Queso fresco,gramos,30
+C06,Salsa verde,gramos,50
