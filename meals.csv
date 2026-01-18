@@ -1,58 +1,58 @@
-Codigo,Nombre,Dificultad,Etiquetas,Contador,Ingredientes,Preparacion,Preferencia,Variaciones
-C01,Enchiladas suizas,Sencillas,Comida,0,Tortilla; Pollo; Salsa verde; Queso; Cebolla morada,,Julio,Carne de res
-C02,Enchiladas rojas,Sencillas,Comida,1,Tortilla; Pollo; Salsa roja; queso fresco; lechuga; cebolla,,Julio,
-C03,Pollo con salsa de champion,Sencillas,Comida,0,Pollo; salsa de champion,,Julio,sala de brócoli
-C04,Suchi ball,Sencillas,Comida,0,,,Ericka,
-C05,Lasgna de calabacin,Sencillas,Comida,0,Calabacin; Queso; salsa de tomate,,Ericka,
-C06,Flautas,Sencillas,Comida,0,Tortilla para taco; Carne de res; Papa; Lechuga; tomate; pepino; rabano; queso fresco; consome de tomate,,Julio,Con pollo
-C07,Hamburguesas,Sencillas,Comida,0,Pan keto o integral; tomate; cebolla; lechuga; queso amarillo/blanco; carne de res,,Julio,con carne de pollo; carne de pavo
-C08,Wrap,Sencillas,Comida,0,,,Ericka,muchas C09
-C09,Bulgogi,Elaborada,Comida,0,,,Julio; Ericka,
-C10,Rollo de pepino,Elaborada,Comida,0,Pepino; Aguacate; Atun,,Julio; Ericka,Con atun; con camaron; Con salmon
-C11,Tacos de pescado,Elaborada,Comida,0,Tortilla para taco; Pescado; Mayonesa; Ketchup; Cebolla; Repollo,,Julio; Ericka,Con camaron; con atun
-C12,Pizza,Elaborada,Comida,0,.,,Julio; Ericka,
-C13,Bowl de sushi de atún,Sencillas,Comida,0,Arroz para sushi; Atún fresco; Pepino; Aguacate; Salsa de soya baja en sodio; Ajonjolí,,Ericka,Ninguna
-C14,Ensalada de pollo mediterránea,Sencillas,Comida,0,Pechuga de pollo a la parrilla; Lechuga mixta; Queso feta; Pepino; Aderezo de vinagreta de limón; Pan integral,,Julio,Ninguna
-C15,Tacos de bistec,Sencillas,Comida,0,Tortillas de maíz; Bistec a la parrilla; Aguacate; Nopales asados; Salsa roja,,Ericka,Ninguna
-C16,Pasta cremosa con pollo,Sencillas,Comida,0,Pasta integral cocida; Pechuga de pollo a la parrilla; Brócoli al vapor; Crema de coco ligera,,Ericka,Ninguna
-C17,Bagel con toppings dulces,Sencillas,Comida,0,Bagel integral; Crema de cacahuate; Fresas frescas,,Ericka,Ninguna
-C18,Hamburguesa saludable,Sencillas,Comida,0,Pan integral para hamburguesa; Carne molida 95/5; Queso cheddar bajo en grasa; Lechuga; Jitomate; Mayonesa ligera; Camote al horno,,Ericka,Ninguna
-C19,Wrap de pollo,Sencillas,Comida,0,Tortilla integral; Pechuga de pollo desmenuzada; Aguacate; Zanahoria rallada; Aderezo ranch bajo en grasa,,Ericka,Ninguna
-C20,"Avena con leche, frutas y nueces",Sencillas,Desayuno,0,"Almendras; Nueces; Frutas solo 3 (plátano, fresa, arándano, frambuesa, zarzamora)",,Julio; Ninas; Ericka,Cambiar frutas
-D01,Huevo con jamon de pavo,Sencillas,Desayuno,0,huevo; jamon de pavo,,Julio; Ericka,con tocino; jamon de cerdo
-D02,Huevo chorizo,Sencillas,Desayuno,0,huevo; cebolla; chorizo,,Julio,
-D03,Huevo con papa,Sencillas,Desayuno,0,huevo; cebolla; papa,,Julio,con camote
-D04,"Omelette con champiñón, espinaca, queso",Sencillas,Desayuno,0,huevo; champiñon; espinaca; queso,,Julio; Ericka,
-D05,Omelette clásico,Sencillas,Desayuno,0,Huevos enteros; Claras de huevo; Queso mozzarella bajo en grasa; Champiñones; Pan integral; Mantequilla clarificada (ghee),,Ericka,Ninguna
-D06,Tostadas mexicanas saludables,Sencillas,Desayuno,0,Tostadas horneadas; Frijoles refritos sin grasa añadida; Aguacate; Queso fresco; Pico de gallo; Café con leche deslactosada,,Julio,Ninguna
-D07,Smoothie cremoso de fresas,Sencillas,Desayuno,0,Fresas; Leche de almendra sin azúcar; Proteína en polvo sabor vainilla,,Julio,Ninguna
-D08,Yogur griego con toppings,Sencillas,"Desayuno, Cena, Comida",2,Yogur griego natural sin azúcar; Granola; Almendras,,Ericka,Ninguna
-C21,Pollo asado,Sencillas,Comida,0,,,,
-C22,Carne en su jugo,Elaborada,Comida,0,,,,
-C23,Torta fría,Sencillas,Comida,0,,,,
-C24,Torta de pavo,Sencillas,Comida,0,,,,
-C25,Ceviche de atún,Elaborada,Comida,0,,,,
-C26,Pescado empanizado,Sencillas,Comida,0,,,,
-C27,Pescado empapelado,Elaborada,Comida,0,,,,
-C28,Salmon guisado,Sencillas,Comida,0,,,,
-C29,Chilaquiles rojos/verdes con huevo y queso,Elaborada,Comida,0,,,,
-C30,Pollo frito con papas,Sencillas,Comida,0,,,,
-C31,Ensalada de atún,Sencillas,Comida,0,,,,
-C32,Quesadillas con jamon de pavo,Sencillas,Comida,3,,,,
-C33,Galletas de arroz con crema de almendra y fresas,Sencillas,Comida,0,,,,
-C34,Tacos de carne asada,No casera,"Comida, Cena",1,,,,
-C35,Lentejas preparadas,Sencillas,"Comida, Cena",0,,,,
-C36,Tacos de guisado paisa,No casera,Desayuno,1,,,,
-C37,Pizza,No casera,"Comida, Cena",1,,,,
-C38,Spaghetti con pollo,Sencillas,Comida,1,,,,
-C39,Ceviche de camaron y pulpo,Elaborada,Comida,1,,,,
-C40,Pozole,No casera,"Comida, Cena",1,,,,
-D09,Huevo con tocino,Sencillas,Desayuno,2,,,,
-C41,Poke de atun,Elaborada,Comida,1,,,,
-C42,Flautas Lupita,No casera,Cena,1,,,,
-C43,"Pollo, arroz y verduras",Sencillas,Comida,1,,,,
-C44,Machaca con huevo,Sencillas,Desayuno,0,,,,
+Codigo,Nombre,Dificultad,Etiquetas,Contador,Ingredientes,Preparacion,Preferencia,Variaciones,Sides
+C01,Enchiladas suizas,Sencillas,Comida,0,Tortilla; Pollo; Salsa verde; Queso; Cebolla morada,,Julio,Carne de res,
+C02,Enchiladas rojas,Sencillas,Comida,1,Tortilla; Pollo; Salsa roja; queso fresco; lechuga; cebolla,,Julio,,
+C03,Pollo con salsa de champion,Sencillas,Comida,0,Pollo; salsa de champion,,Julio,sala de brócoli,S01;S02;S03
+C04,Suchi ball,Sencillas,Comida,0,,,Ericka,,
+C05,Lasgna de calabacin,Sencillas,Comida,0,Calabacin; Queso; salsa de tomate,,Ericka,,
+C06,Flautas,Sencillas,Comida,0,Tortilla para taco; Carne de res; Papa; Lechuga; tomate; pepino; rabano; queso fresco; consome de tomate,,Julio,Con pollo,
+C07,Hamburguesas,Sencillas,Comida,0,Pan keto o integral; tomate; cebolla; lechuga; queso amarillo/blanco; carne de res,,Julio,con carne de pollo; carne de pavo,
+C08,Wrap,Sencillas,Comida,0,,,Ericka,muchas C09,
+C09,Bulgogi,Elaborada,Comida,0,,,Julio; Ericka,,S01;S02;S03;S08
+C10,Rollo de pepino,Elaborada,Comida,0,Pepino; Aguacate; Atun,,Julio; Ericka,Con atun; con camaron; Con salmon,
+C11,Tacos de pescado,Elaborada,Comida,0,Tortilla para taco; Pescado; Mayonesa; Ketchup; Cebolla; Repollo,,Julio; Ericka,Con camaron; con atun,
+C12,Pizza,Elaborada,Comida,0,.,,Julio; Ericka,,
+C13,Bowl de sushi de atún,Sencillas,Comida,0,Arroz para sushi; Atún fresco; Pepino; Aguacate; Salsa de soya baja en sodio; Ajonjolí,,Ericka,Ninguna,
+C14,Ensalada de pollo mediterránea,Sencillas,Comida,0,Pechuga de pollo a la parrilla; Lechuga mixta; Queso feta; Pepino; Aderezo de vinagreta de limón; Pan integral,,Julio,Ninguna,
+C15,Tacos de bistec,Sencillas,Comida,0,Tortillas de maíz; Bistec a la parrilla; Aguacate; Nopales asados; Salsa roja,,Ericka,Ninguna,
+C16,Pasta cremosa con pollo,Sencillas,Comida,0,Pasta integral cocida; Pechuga de pollo a la parrilla; Brócoli al vapor; Crema de coco ligera,,Ericka,Ninguna,
+C17,Bagel con toppings dulces,Sencillas,Comida,0,Bagel integral; Crema de cacahuate; Fresas frescas,,Ericka,Ninguna,
+C18,Hamburguesa saludable,Sencillas,Comida,0,Pan integral para hamburguesa; Carne molida 95/5; Queso cheddar bajo en grasa; Lechuga; Jitomate; Mayonesa ligera; Camote al horno,,Ericka,Ninguna,
+C19,Wrap de pollo,Sencillas,Comida,0,Tortilla integral; Pechuga de pollo desmenuzada; Aguacate; Zanahoria rallada; Aderezo ranch bajo en grasa,,Ericka,Ninguna,
+C20,"Avena con leche, frutas y nueces",Sencillas,Desayuno,0,"Almendras; Nueces; Frutas solo 3 (plátano, fresa, arándano, frambuesa, zarzamora)",,Julio; Ninas; Ericka,Cambiar frutas,
+D01,Huevo con jamon de pavo,Sencillas,Desayuno,0,huevo; jamon de pavo,,Julio; Ericka,con tocino; jamon de cerdo,S04;S05;S06
+D02,Huevo chorizo,Sencillas,Desayuno,0,huevo; cebolla; chorizo,,Julio,,S04;S05;S06
+D03,Huevo con papa,Sencillas,Desayuno,0,huevo; cebolla; papa,,Julio,con camote,S04;S05;S06
+D04,"Omelette con champiñón, espinaca, queso",Sencillas,Desayuno,0,huevo; champiñon; espinaca; queso,,Julio; Ericka,,S04;S05;S06
+D05,Omelette clásico,Sencillas,Desayuno,0,Huevos enteros; Claras de huevo; Queso mozzarella bajo en grasa; Champiñones; Pan integral; Mantequilla clarificada (ghee),,Ericka,Ninguna,
+D06,Tostadas mexicanas saludables,Sencillas,Desayuno,0,Tostadas horneadas; Frijoles refritos sin grasa añadida; Aguacate; Queso fresco; Pico de gallo; Café con leche deslactosada,,Julio,Ninguna,
+D07,Smoothie cremoso de fresas,Sencillas,Desayuno,0,Fresas; Leche de almendra sin azúcar; Proteína en polvo sabor vainilla,,Julio,Ninguna,
+D08,Yogur griego con toppings,Sencillas,"Desayuno, Cena, Comida",2,Yogur griego natural sin azúcar; Granola; Almendras,,Ericka,Ninguna,
+C21,Pollo asado,Sencillas,Comida,0,,,,,S01;S02;S03;S08;S09
+C22,Carne en su jugo,Elaborada,Comida,0,,,,,S01;S07
+C23,Torta fría,Sencillas,Comida,0,,,,,
+C24,Torta de pavo,Sencillas,Comida,0,,,,,
+C25,Ceviche de atún,Elaborada,Comida,0,,,,,
+C26,Pescado empanizado,Sencillas,Comida,0,,,,,S01;S02;S09;S10
+C27,Pescado empapelado,Elaborada,Comida,0,,,,,S01;S02;S08
+C28,Salmon guisado,Sencillas,Comida,0,,,,,S01;S02;S03;S09
+C29,Chilaquiles rojos/verdes con huevo y queso,Elaborada,Comida,0,,,,,
+C30,Pollo frito con papas,Sencillas,Comida,0,,,,,
+C31,Ensalada de atún,Sencillas,Comida,0,,,,,
+C32,Quesadillas con jamon de pavo,Sencillas,Comida,3,,,,,
+C33,Galletas de arroz con crema de almendra y fresas,Sencillas,Comida,0,,,,,
+C34,Tacos de carne asada,No casera,"Comida, Cena",1,,,,,
+C35,Lentejas preparadas,Sencillas,"Comida, Cena",0,,,,,
+C36,Tacos de guisado paisa,No casera,Desayuno,1,,,,,
+C37,Pizza,No casera,"Comida, Cena",1,,,,,
+C38,Spaghetti con pollo,Sencillas,Comida,1,,,,,
+C39,Ceviche de camaron y pulpo,Elaborada,Comida,1,,,,,
+C40,Pozole,No casera,"Comida, Cena",1,,,,,
+D09,Huevo con tocino,Sencillas,Desayuno,2,,,,,S04;S05;S06
+C41,Poke de atun,Elaborada,Comida,1,,,,,
+C42,Flautas Lupita,No casera,Cena,1,,,,,
+C43,"Pollo, arroz y verduras",Sencillas,Comida,1,,,,,
+C44,Machaca con huevo,Sencillas,Desayuno,0,,,,,S04;S05;S06
 C45,Subway,No casera,"Comida, Cena",1,,,,
-,,,,0,,,,
-,,,,0,,,,
-,,,,0,,,,
+,,,,0,,,,,
+,,,,0,,,,,
+,,,,0,,,,,

@@ -19,6 +19,8 @@ global.SpreadsheetApp = {
         getSheetByName: (name) => {
             if (name === 'Meals') return mockMealsSheet;
             if (name === 'Ingredientes') return mockIngredientsSheet;
+            if (name === 'Sides') return mockSidesSheet;
+            if (name === 'SideIngredientes') return mockSideIngredientsSheet;
             return mockPlanSheet;
         },
         insertSheet: (name) => {
@@ -44,6 +46,28 @@ const mockIngredientsSheet = {
     getDataRange: () => ({
         getValues: () => {
             const filePath = path.join(__dirname, 'ingredients.csv');
+            const fileContent = fs.readFileSync(filePath, 'utf8');
+            return fileContent.split('\n').map(line => line.split(','));
+        }
+    })
+};
+
+// Mock Sides sheet with sample data
+const mockSidesSheet = {
+    getDataRange: () => ({
+        getValues: () => {
+            const filePath = path.join(__dirname, 'sides.csv');
+            const fileContent = fs.readFileSync(filePath, 'utf8');
+            return fileContent.split('\n').map(line => line.split(','));
+        }
+    })
+};
+
+// Mock Side Ingredients sheet with sample data
+const mockSideIngredientsSheet = {
+    getDataRange: () => ({
+        getValues: () => {
+            const filePath = path.join(__dirname, 'sides-ingredients.csv');
             const fileContent = fs.readFileSync(filePath, 'utf8');
             return fileContent.split('\n').map(line => line.split(','));
         }
@@ -86,19 +110,55 @@ try {
     
     // Show first few meals
     console.log('Sample meals:');
-    meals.slice(0, 3).forEach(m => {
-        console.log(`  - ${m.code}: ${m.name} [${m.tags}] (count: ${m.count})`);
+    meals.slice(0, 5).forEach(m => {
+        const sidesInfo = m.availableSides.length > 0 ? `sides: [${m.availableSides.join(', ')}]` : 'no sides';
+        console.log(`  - ${m.code}: ${m.name} [${m.tags}] (count: ${m.count}, ${sidesInfo})`);
     });
     console.log('');
     
-    // Test generating a week plan
-    console.log('2. Generating week plan...');
+    // Test reading sides
+    console.log('2. Reading sides from sheet...');
+    const sides = sheetFunctions.readSidesSheet();
+    console.log(`Found ${sides.length} sides\n`);
+    
+    // Show first few sides
+    console.log('Sample sides:');
+    sides.slice(0, 3).forEach(s => {
+        console.log(`  - ${s.code}: ${s.name} [${s.tags}]`);
+    });
+    console.log('');
+    
+    // Test reading side ingredients
+    console.log('3. Reading side ingredients from sheet...');
+    const rawSideIngredients = sheetFunctions.readSideIngredientsSheet();
+    const sideIngredients = sheetFunctions.processSideIngredientsSheet(rawSideIngredients);
+    console.log(`Found ${sideIngredients.length} side ingredient entries\n`);
+    
+    // Show first few side ingredients
+    console.log('Sample side ingredients:');
+    sideIngredients.slice(0, 5).forEach(ing => {
+        console.log(`  - ${ing.sideCode}: ${ing.quantity}${ing.unit} ${ing.name}`);
+    });
+    console.log('');
+    
+    // Test generating a week plan with sides
+    console.log('4. Generating week plan with sides...');
     const startDate = sheetFunctions.getStartOfTheWeek(1);
-    const weekPlan = sheetFunctions.generateWeekPlan(meals, startDate);
+    const weekPlan = sheetFunctions.generateWeekPlan(meals, startDate, sides, sideIngredients);
     console.log(`Generated plan for ${weekPlan.length} days\n`);
     
+    // Show sample day with meals and sides
+    console.log('Sample day plan:');
+    const sampleDay = weekPlan[0];
+    console.log(`${sampleDay.dayLabel}:`);
+    sampleDay.meals.forEach(m => {
+        const sideInfo = m.side ? ` + ${m.side.name}` : '';
+        console.log(`  - ${m.time}: ${m.meal.name}${sideInfo}`);
+    });
+    console.log('');
+    
     // Test reading ingredients
-    console.log('3. Reading ingredients from sheet...');
+    console.log('5. Reading ingredients from sheet...');
     const rawIngredients = sheetFunctions.readIngredientsSheet();
     const ingredients = sheetFunctions.processIngredientsSheet(rawIngredients);
 
@@ -112,8 +172,8 @@ try {
     console.log('');
     
     // Test shopping list by day
-    console.log('4. Generating shopping list by day...');
-    const shoppingByDay = sheetFunctions.generateShoppingListGroupedByDay(weekPlan, ingredients);
+    console.log('6. Generating shopping list by day (including sides)...');
+    const shoppingByDay = sheetFunctions.generateShoppingListGroupedByDay(weekPlan, ingredients, sideIngredients);
     console.log('\n=== SHOPPING LIST BY DAY ===\n');
     shoppingByDay.forEach(day => {
         console.log(`\n${day.dayLabel}`);
@@ -132,8 +192,8 @@ try {
     console.log('\n============================\n');
     
     // Test shopping list by week (aggregated)
-    console.log('5. Generating shopping list by week (aggregated)...');
-    const shoppingByWeek = sheetFunctions.generateShoppingListAggregated(weekPlan, ingredients);
+    console.log('7. Generating shopping list by week (aggregated, including sides)...');
+    const shoppingByWeek = sheetFunctions.generateShoppingListAggregated(weekPlan, ingredients, sideIngredients);
     console.log('\n=== SHOPPING LIST BY WEEK ===\n');
     if (shoppingByWeek.length === 0) {
         console.log('No hay ingredientes registrados');

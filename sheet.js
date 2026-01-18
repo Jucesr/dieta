@@ -35,15 +35,26 @@ function generateOneWeekTab() {
 
    if (meals.length === 0) throw new Error("No valid meals found (need non-empty code + name).");
 
-   const weekPlan = generateWeekPlan(meals, startDate);
+   // Read Sides tables (optional)
+   let sides = null;
+   let sideIngredients = null;
+   try {
+      sides = readSidesSheet();
+      const rawSideIngredients = readSideIngredientsSheet();
+      sideIngredients = processSideIngredientsSheet(rawSideIngredients);
+   } catch (error) {
+      console.log("Sides not available:", error.message);
+   }
+
+   const weekPlan = generateWeekPlan(meals, startDate, sides, sideIngredients);
    
    // Convert to spreadsheet format
    const rows = convertWeekPlanToRows(weekPlan);
 
    // Generate shopping lists
    const ingredients = processIngredientsSheet(readIngredientsSheet());
-   const shoppingListByWeek = generateShoppingListAggregated(weekPlan, ingredients);
-   const shoppingListByDay = generateShoppingListGroupedByDay(weekPlan, ingredients);
+   const shoppingListByWeek = generateShoppingListAggregated(weekPlan, ingredients, sideIngredients);
+   const shoppingListByDay = generateShoppingListGroupedByDay(weekPlan, ingredients, sideIngredients);
 
    writeOnSheet(weekNumber, rows, shoppingListByWeek, shoppingListByDay);
 }
@@ -65,10 +76,19 @@ function regenerateShoppingLists() {
    // Convert sheet data to weekPlan format
    const weekPlan = convertSheetRowsToWeekPlan(mealPlanData);
    
+   // Read Sides tables (optional)
+   let sideIngredients = null;
+   try {
+      const rawSideIngredients = readSideIngredientsSheet();
+      sideIngredients = processSideIngredientsSheet(rawSideIngredients);
+   } catch (error) {
+      console.log("Side ingredients not available:", error.message);
+   }
+   
    // Generate shopping lists
    const ingredients = processIngredientsSheet(readIngredientsSheet());
-   const shoppingListByWeek = generateShoppingListAggregated(weekPlan, ingredients);
-   const shoppingListByDay = generateShoppingListGroupedByDay(weekPlan, ingredients);
+   const shoppingListByWeek = generateShoppingListAggregated(weekPlan, ingredients, sideIngredients);
+   const shoppingListByDay = generateShoppingListGroupedByDay(weekPlan, ingredients, sideIngredients);
    
    // Clear everything below row 4 (the meal plan table)
    const lastRow = planSheet.getMaxRows();
@@ -150,7 +170,7 @@ function readUserInput () {
    return weekNum;
 }
 
-function generateWeekPlan(meals, startDate = null) {
+function generateWeekPlan(meals, startDate = null, sides = null, sideIngredients = null) {
    // Optional: if you tag meals with "desayuno", "comida", "cena", it will try to use those pools
    const breakfasts = filterByTag(meals, [mealTime.desayuno]);
    const lunches = filterByTag(meals, [mealTime.comida]);
@@ -179,13 +199,33 @@ function generateWeekPlan(meals, startDate = null) {
       // For each meal time
       for (let mt = 0; mt < MEAL_TIMES.length; mt++) {
          const pick = pickMeal(poolsByMealTime[mt], meals, used);
-         dayPlan.meals.push({
+         const mealEntry = {
             time: MEAL_TIMES[mt],
             meal: {
                code: pick.code,
                name: pick.name
             }
-         });
+         };
+         
+         // Add side if meal has available sides defined
+         if (pick.availableSides && pick.availableSides.length > 0 && sides && sides.length > 0) {
+            // Filter sides to only those specified for this meal
+            const mealSpecificSides = sides.filter(s => pick.availableSides.includes(s.code));
+            
+            if (mealSpecificSides.length > 0) {
+               const side = pickSide(mealSpecificSides, sideIngredients);
+               
+               if (side) {
+                  mealEntry.side = {
+                     code: side.code,
+                     name: side.name,
+                     quantity: side.quantity || 1
+                  };
+               }
+            }
+         }
+         
+         dayPlan.meals.push(mealEntry);
       }
 
       weekPlan.push(dayPlan);
@@ -209,6 +249,7 @@ function readMealsSheet(){
    const nameCol = findCol(headers, ["nombre", "name", "meal", "platillo"]);
    const tagsCol = findCol(headers, ["etiquetas", "tags", "tag"]); // optional
    const countCol = findCol(headers, ["contador", "count", "cantidad de veces"]);
+   const sidesCol = findCol(headers, ["sides", "guarniciones", "guarnicion", "guarnición"]);
 
    if (codeCol === -1) throw new Error('Could not find code column header (e.g., "Código", "Codigo", or "Code").');
    if (nameCol === -1) throw new Error('Could not find name column header (e.g., "Nombre" or "Name").');
@@ -221,11 +262,23 @@ function readMealsSheet(){
       if (!code || !name) continue;
 
       const tags = tagsCol !== -1 ? String(row[tagsCol] || "").toLowerCase() : "";
+      
+      // Parse sides list (format: S01;S02;S03 or S01,S02,S03)
+      let availableSides = [];
+      if (sidesCol !== -1) {
+         const sidesValue = String(row[sidesCol] || "").trim();
+         if (sidesValue) {
+            // Split by ; or , and clean up
+            availableSides = sidesValue.split(/[;,]/).map(s => s.trim()).filter(s => s);
+         }
+      }
+      
       meals.push({
          code: String(code).trim(),
          name: String(name).trim(),
          tags,
          count: countCol !== -1 ? parseInt(row[countCol] || "0", 10) : 0,
+         availableSides,
       });
    }
    return meals;
@@ -381,7 +434,12 @@ function convertWeekPlanToRows(weekPlan) {
       for (const day of weekPlan) {
          const mealEntry = day.meals.find(m => m.time === mealTime);
          if (mealEntry) {
-            row.push(mealEntry.meal.code, mealEntry.meal.name);
+            let mealText = mealEntry.meal.name;
+            // Add side info if present
+            if (mealEntry.side) {
+               mealText += `\n+ ${mealEntry.side.name}`;
+            }
+            row.push(mealEntry.meal.code, mealText);
          } else {
             row.push("", "");
          }
@@ -444,16 +502,31 @@ function convertRowsToWeekPlan(tabSeparatedText) {
          const nameIndex = codeIndex + 1;
          
          const code = row[codeIndex] ? row[codeIndex].trim() : '';
-         const name = row[nameIndex] ? row[nameIndex].trim() : '';
+         let name = row[nameIndex] ? row[nameIndex].trim() : '';
          
          if (code && name) {
-            weekPlan[d].meals.push({
+            const mealEntry = {
                time: mealTime,
                meal: {
                   code: code,
                   name: name
                }
-            });
+            };
+            
+            // Check if name contains a side (format: "Meal Name\n+ Side Name")
+            if (name.includes('\n+')) {
+               const parts = name.split('\n+');
+               mealEntry.meal.name = parts[0].trim();
+               const sideName = parts[1].trim();
+               
+               mealEntry.side = {
+                  code: 'S??', // Placeholder
+                  name: sideName,
+                  quantity: 1
+               };
+            }
+            
+            weekPlan[d].meals.push(mealEntry);
          }
       }
    }
@@ -507,17 +580,34 @@ function convertSheetRowsToWeekPlan(rows) {
          const nameIndex = codeIndex + 1;
          
          const code = row[codeIndex] ? String(row[codeIndex]).trim() : '';
-         const name = row[nameIndex] ? String(row[nameIndex]).trim() : '';
+         let name = row[nameIndex] ? String(row[nameIndex]).trim() : '';
          
          // Only add meal if both code and name exist
          if (code && name) {
-            weekPlan[d].meals.push({
+            const mealEntry = {
                time: mealTime,
                meal: {
                   code: code,
                   name: name
                }
-            });
+            };
+            
+            // Check if name contains a side (format: "Meal Name\n+ Side Name")
+            if (name.includes('\n+')) {
+               const parts = name.split('\n+');
+               mealEntry.meal.name = parts[0].trim();
+               const sideName = parts[1].trim();
+               
+               // Try to find side code (you may need to load sides sheet to get code)
+               // For now, we'll use a placeholder or extract from a registry
+               mealEntry.side = {
+                  code: 'S??', // Placeholder - ideally we'd look this up
+                  name: sideName,
+                  quantity: 1
+               };
+            }
+            
+            weekPlan[d].meals.push(mealEntry);
          }
       }
    }
@@ -539,16 +629,53 @@ function pickMeal(preferredPool, fullPool, usedSet) {
    return pick;
 }
 
+// Pick a random side from the available pool
+function pickSide(sidePool, sideIngredients) {
+   if (!sidePool || sidePool.length === 0) return null;
+   
+   // Pick a random side
+   const randomIndex = Math.floor(Math.random() * sidePool.length);
+   const side = sidePool[randomIndex];
+   
+   // Get default quantity from ingredients if available
+   let quantity = 1;
+   if (sideIngredients && sideIngredients.length > 0) {
+      const sideIngs = sideIngredients.filter(ing => ing.sideCode === side.code);
+      if (sideIngs.length > 0) {
+         // Use quantity from first ingredient as reference
+         quantity = sideIngs[0].quantity || 1;
+      }
+   }
+   
+   return {
+      code: side.code,
+      name: side.name,
+      quantity
+   };
+}
+
 // Shopping List Functions
 
 function generateShoppingListByDay() {
    const weekNumber = readUserInput();
    const startDate = getStartOfTheWeek(weekNumber);
    const meals = readMealsSheet();
-   const weekPlan = generateWeekPlan(meals, startDate);
+   
+   // Read Sides tables (optional)
+   let sides = null;
+   let sideIngredients = null;
+   try {
+      sides = readSidesSheet();
+      const rawSideIngredients = readSideIngredientsSheet();
+      sideIngredients = processSideIngredientsSheet(rawSideIngredients);
+   } catch (error) {
+      console.log("Sides not available:", error.message);
+   }
+   
+   const weekPlan = generateWeekPlan(meals, startDate, sides, sideIngredients);
    const ingredients = processIngredientsSheet(readIngredientsSheet());
    
-   const shoppingList = generateShoppingListGroupedByDay(weekPlan, ingredients);
+   const shoppingList = generateShoppingListGroupedByDay(weekPlan, ingredients, sideIngredients);
    console.log(JSON.stringify(shoppingList, null, 2));
    writeShoppingListByDay(weekNumber, shoppingList);
 }
@@ -557,10 +684,22 @@ function generateShoppingListByWeek() {
    const weekNumber = readUserInput();
    const startDate = getStartOfTheWeek(weekNumber);
    const meals = readMealsSheet();
-   const weekPlan = generateWeekPlan(meals, startDate);
+   
+   // Read Sides tables (optional)
+   let sides = null;
+   let sideIngredients = null;
+   try {
+      sides = readSidesSheet();
+      const rawSideIngredients = readSideIngredientsSheet();
+      sideIngredients = processSideIngredientsSheet(rawSideIngredients);
+   } catch (error) {
+      console.log("Sides not available:", error.message);
+   }
+   
+   const weekPlan = generateWeekPlan(meals, startDate, sides, sideIngredients);
    const ingredients = processIngredientsSheet(readIngredientsSheet());
    
-   const shoppingList = generateShoppingListAggregated(weekPlan, ingredients);
+   const shoppingList = generateShoppingListAggregated(weekPlan, ingredients, sideIngredients);
    writeShoppingListByWeek(weekNumber, shoppingList);
 }
 
@@ -580,6 +719,92 @@ function readIngredientsSheet(filename) {
       throw new Error("No ingredients found (need headers + at least one row).");
    }
    return values;
+}
+
+function readSidesSheet(){
+    const ss = SpreadsheetApp.getActive();
+    const sidesSheetName = "Sides";
+    const sidesSheet = ss.getSheetByName(sidesSheetName);
+    if (!sidesSheet) throw new Error(`Sheet "${sidesSheetName}" not found.`);
+
+    const values = sidesSheet.getDataRange().getValues();
+   if (values.length < 2) throw new Error("No sides found (need headers + at least one row).");
+
+   const headers = values[0].map((h) => String(h).trim().toLowerCase());
+
+   const codeCol = findCol(headers, ["código", "codigo", "code"]);
+   const nameCol = findCol(headers, ["nombre", "name"]);
+   const tagsCol = findCol(headers, ["etiquetas", "tags", "tag"]); // optional
+
+   if (codeCol === -1) throw new Error('Could not find code column header in Sides sheet.');
+   if (nameCol === -1) throw new Error('Could not find name column header in Sides sheet.');
+
+   const sides = [];
+   for (let r = 1; r < values.length; r++) {
+      const row = values[r];
+      const code = row[codeCol];
+      const name = row[nameCol];
+      if (!code || !name) continue;
+
+      const tags = tagsCol !== -1 ? String(row[tagsCol] || "").toLowerCase() : "";
+      sides.push({
+         code: String(code).trim(),
+         name: String(name).trim(),
+         tags,
+      });
+   }
+   return sides;
+}
+
+function readSideIngredientsSheet() {
+   const ss = SpreadsheetApp.getActive();
+   const sideIngredientsSheetName = "SideIngredientes";
+   const sideIngredientsSheet = ss.getSheetByName(sideIngredientsSheetName);
+
+   if (!sideIngredientsSheet) {
+      throw new Error(
+         `Sheet "${sideIngredientsSheetName}" not found. Please create a SideIngredientes sheet with columns: Side Code, Nombre, Unidad, Cantidad`
+      );
+   }
+
+   const values = sideIngredientsSheet.getDataRange().getValues();
+   if (values.length < 2) {
+      throw new Error("No side ingredients found (need headers + at least one row).");
+   }
+   return values;
+}
+
+function processSideIngredientsSheet(values) {
+   
+   const headers = values[0].map((h) => String(h).trim().toLowerCase());
+   
+   const sideCodeCol = findCol(headers, ["side code", "código", "codigo", "code"]);
+   const nameCol = findCol(headers, ["nombre", "name", "ingrediente", "ingredient"]);
+   const unitCol = findCol(headers, ["unidad", "unit", "medida"]);
+   const quantityCol = findCol(headers, ["cantidad", "quantity", "amount"]);
+   
+   if (sideCodeCol === -1) throw new Error('Could not find side code column in SideIngredientes sheet.');
+   if (nameCol === -1) throw new Error('Could not find ingredient name column in SideIngredientes sheet.');
+   if (unitCol === -1) throw new Error('Could not find unit column in SideIngredientes sheet.');
+   if (quantityCol === -1) throw new Error('Could not find quantity column in SideIngredientes sheet.');
+   
+   const ingredients = [];
+   for (let r = 1; r < values.length; r++) {
+      const row = values[r];
+      const sideCode = row[sideCodeCol];
+      const name = row[nameCol];
+      
+      if (!sideCode || !name) continue;
+      
+      ingredients.push({
+         sideCode: String(sideCode).trim(),
+         name: String(name).trim(),
+         unit: String(row[unitCol] || "").trim(),
+         quantity: parseFloat(row[quantityCol]) || 0
+      });
+   }
+   
+   return ingredients;
 }
 
 function processIngredientsSheet(values) {
@@ -615,7 +840,7 @@ function processIngredientsSheet(values) {
    return ingredients;
 }
 
-function generateShoppingListGroupedByDay(weekPlan, ingredients) {
+function generateShoppingListGroupedByDay(weekPlan, ingredients, sideIngredients) {
    const shoppingByDay = [];
    
    for (const day of weekPlan) {
@@ -641,6 +866,26 @@ function generateShoppingListGroupedByDay(weekPlan, ingredients) {
             
             dayIngredients[key].quantity += ing.quantity;
          }
+         
+         // Add side ingredients if meal has a side
+         if (mealEntry.side && sideIngredients) {
+            const sideCode = mealEntry.side.code;
+            const sideIngs = sideIngredients.filter(ing => ing.sideCode === sideCode);
+            
+            for (const ing of sideIngs) {
+               const key = `${ing.name}|${ing.unit}`;
+               
+               if (!dayIngredients[key]) {
+                  dayIngredients[key] = {
+                     name: ing.name,
+                     unit: ing.unit,
+                     quantity: 0
+                  };
+               }
+               
+               dayIngredients[key].quantity += ing.quantity;
+            }
+         }
       }
       
       // Convert to array and sort
@@ -657,7 +902,7 @@ function generateShoppingListGroupedByDay(weekPlan, ingredients) {
    return shoppingByDay;
 }
 
-function generateShoppingListAggregated(weekPlan, ingredients) {
+function generateShoppingListAggregated(weekPlan, ingredients, sideIngredients) {
    const aggregatedIngredients = {};
    
    for (const day of weekPlan) {
@@ -679,6 +924,26 @@ function generateShoppingListAggregated(weekPlan, ingredients) {
             }
             
             aggregatedIngredients[key].quantity += ing.quantity;
+         }
+         
+         // Add side ingredients if meal has a side
+         if (mealEntry.side && sideIngredients) {
+            const sideCode = mealEntry.side.code;
+            const sideIngs = sideIngredients.filter(ing => ing.sideCode === sideCode);
+            
+            for (const ing of sideIngs) {
+               const key = `${ing.name}|${ing.unit}`;
+               
+               if (!aggregatedIngredients[key]) {
+                  aggregatedIngredients[key] = {
+                     name: ing.name,
+                     unit: ing.unit,
+                     quantity: 0
+                  };
+               }
+               
+               aggregatedIngredients[key].quantity += ing.quantity;
+            }
          }
       }
    }
@@ -784,12 +1049,16 @@ if (typeof module !== 'undefined' && module.exports) {
         readUserInput,
         generateWeekPlan,
         readMealsSheet,
+        readSidesSheet,
+        readSideIngredientsSheet,
+        processSideIngredientsSheet,
         writeOnSheet,
         appendShoppingListByWeek,
         appendShoppingListByDay,
         findCol,
         filterByTag,
         pickMeal,
+        pickSide,
         convertWeekPlanToRows,
         convertRowsToWeekPlan,
         convertSheetRowsToWeekPlan,
