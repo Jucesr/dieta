@@ -1,0 +1,73 @@
+.meal-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.meal-picker-search input {
+  width: 100%;
+}
+
+.meal-picker-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.meal-picker-list {
+  max-height: 50vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0 -1.25rem;
+  padding: 0 1.25rem;
+}
+
+.meal-picker-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 2rem;
+}
+
+.meal-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.meal-picker-item:hover {
+  background: var(--bg-card-hover);
+}
+
+.meal-picker-item.current {
+  border: 1px solid var(--accent-primary);
+}
+
+.meal-picker-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.meal-picker-item-code {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.meal-picker-item-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.meal-picker-item-meta {
+  display: flex;
+  gap: 0.375rem;
+}

@@ -1,0 +1,205 @@
+.shopping-page {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.shopping-count {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-sm);
+}
+
+.shopping-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.day-toggles {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--bg-secondary);
+  padding: 0.375rem;
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.day-toggle {
+  flex: 1;
+  min-width: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.5rem 0.375rem;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.day-toggle:hover {
+  background: var(--bg-tertiary);
+}
+
+.day-toggle.active {
+  background: var(--accent-primary);
+}
+
+.day-toggle-name {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.day-toggle.active .day-toggle-name {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.day-toggle-number {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.day-toggle.active .day-toggle-number {
+  color: white;
+}
+
+.shopping-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.shopping-section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  padding-left: 0.25rem;
+}
+
+.shopping-section.checked .shopping-section-title {
+  color: var(--text-muted);
+}
+
+.shopping-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.5rem;
+  transition: all var(--transition-fast);
+}
+
+.shopping-item:hover {
+  background: var(--bg-card-hover);
+}
+
+.shopping-item.checked {
+  opacity: 0.6;
+}
+
+.shopping-item.checked .shopping-item-name {
+  text-decoration: line-through;
+}
+
+.shopping-checkbox {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--text-muted);
+  border-radius: 6px;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.shopping-checkbox:hover {
+  border-color: var(--accent-primary);
+}
+
+.shopping-checkbox.checked {
+  background: var(--accent-success);
+  border-color: var(--accent-success);
+}
+
+.checkbox-inner {
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: white;
+}
+
+.shopping-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  cursor: pointer;
+}
+
+.shopping-item-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.shopping-item-quantity {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.shopping-item-meals {
+  padding: 0.375rem 0.625rem;
+  font-size: 0.8rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+.shopping-item-meals:hover {
+  background: var(--bg-card-hover);
+  color: var(--accent-primary);
+}
+
+/* Ingredient meals modal */
+.ingredient-meals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ingredient-meal-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.ingredient-meal-date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: capitalize;
+  min-width: 50px;
+}
+
+.ingredient-meal-time {
+  font-size: 0.75rem;
+  color: var(--accent-primary);
+  text-transform: capitalize;
+}
+
+.ingredient-meal-name {
+  flex: 1;
+  font-weight: 500;
+}

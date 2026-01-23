@@ -1,0 +1,126 @@
+.meal-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--meal-color, var(--accent-primary));
+  overflow: hidden;
+  transition: all var(--transition-normal);
+}
+
+.meal-card:hover {
+  background: var(--bg-card-hover);
+}
+
+.meal-card.delivery {
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(56, 189, 248, 0.1) 100%);
+}
+
+.meal-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  cursor: pointer;
+}
+
+.meal-card-time {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 50px;
+}
+
+.meal-card-icon {
+  font-size: 1.25rem;
+}
+
+.meal-card-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.meal-card-name {
+  flex: 1;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.delivery-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: rgba(56, 189, 248, 0.2);
+  color: var(--accent-info);
+  border-radius: var(--radius-sm);
+}
+
+.meal-card-expand {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  border-radius: 50%;
+}
+
+.meal-card-expand:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.meal-card-details {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid var(--bg-tertiary);
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+.meal-card-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.meal-card-row:last-of-type {
+  border-bottom: none;
+}
+
+.meal-card-row-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  min-width: 80px;
+}
+
+.meal-card-sides {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.meal-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+}
