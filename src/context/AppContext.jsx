@@ -131,13 +131,26 @@ export const AppProvider = ({ children }) => {
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
       
-      // Delete existing meals for this day
-      await scheduledMealsService.deleteByDate(dateStr);
+      // Get existing meals for this day
+      const existingDayMeals = scheduledMeals.filter(m => m.date === dateStr);
+      
+      // Keep completed meals, only delete non-completed ones
+      const completedMeals = existingDayMeals.filter(m => m.completed);
+      const completedMealTimes = completedMeals.map(m => m.mealTime);
+      
+      // Delete only non-completed meals for this day
+      const mealsToDelete = existingDayMeals.filter(m => !m.completed);
+      for (const meal of mealsToDelete) {
+        await scheduledMealsService.delete(meal.id);
+      }
+      
+      // Generate only for meal times that don't have completed meals
+      const mealTimesToGenerate = mealTimes.filter(mt => !completedMealTimes.includes(mt));
       
       const dayPlan = generateDayPlan({
         meals,
         date: dateStr,
-        mealTimes,
+        mealTimes: mealTimesToGenerate,
         recentMeals: scheduledMeals,
         deliveryRules,
         config: {
@@ -151,7 +164,7 @@ export const AppProvider = ({ children }) => {
       const created = await scheduledMealsService.batchCreate(dayPlan);
       
       setScheduledMeals(prev => [
-        ...prev.filter(m => m.date !== dateStr),
+        ...prev.filter(m => m.date !== dateStr || m.completed),
         ...created
       ]);
       
@@ -169,37 +182,67 @@ export const AppProvider = ({ children }) => {
     try {
       const start = startOfWeek(startDate, { weekStartsOn: 1 });
       
-      // Delete existing meals for the week
-      for (let i = 0; i < 7; i++) {
-        const date = addDays(start, i);
-        const dateStr = format(date, 'yyyy-MM-dd');
-        await scheduledMealsService.deleteByDate(dateStr);
-      }
-      
-      const weekPlan = generateWeekPlan({
-        meals,
-        startDate: start,
-        mealTimes,
-        existingMeals: [],
-        deliveryRules,
-        config: {
-          avoidRepetition: true,
-          repetitionWindow: 7,
-          respectPreferences: true,
-          balanceDifficulty: true
-        }
-      });
-      
-      const created = await scheduledMealsService.batchCreate(weekPlan);
-      
-      // Update state
+      // Get week dates
       const weekDates = [];
       for (let i = 0; i < 7; i++) {
         weekDates.push(format(addDays(start, i), 'yyyy-MM-dd'));
       }
       
+      // Get existing meals for the week
+      const existingWeekMeals = scheduledMeals.filter(m => weekDates.includes(m.date));
+      
+      // Keep completed meals
+      const completedMeals = existingWeekMeals.filter(m => m.completed);
+      
+      // Delete only non-completed meals for the week
+      const mealsToDelete = existingWeekMeals.filter(m => !m.completed);
+      for (const meal of mealsToDelete) {
+        await scheduledMealsService.delete(meal.id);
+      }
+      
+      // Build a map of completed meal times by date
+      const completedByDate = {};
+      completedMeals.forEach(m => {
+        if (!completedByDate[m.date]) {
+          completedByDate[m.date] = new Set();
+        }
+        completedByDate[m.date].add(m.mealTime);
+      });
+      
+      // Generate plan excluding completed slots
+      const weekPlan = [];
+      const allScheduled = [...completedMeals];
+      
+      for (let i = 0; i < 7; i++) {
+        const date = addDays(start, i);
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const completedTimes = completedByDate[dateStr] || new Set();
+        const timesToGenerate = mealTimes.filter(mt => !completedTimes.has(mt));
+        
+        if (timesToGenerate.length > 0) {
+          const dayPlan = generateDayPlan({
+            meals,
+            date: dateStr,
+            mealTimes: timesToGenerate,
+            recentMeals: allScheduled,
+            deliveryRules,
+            config: {
+              avoidRepetition: true,
+              repetitionWindow: 7,
+              respectPreferences: true,
+              balanceDifficulty: true
+            }
+          });
+          
+          weekPlan.push(...dayPlan);
+          allScheduled.push(...dayPlan);
+        }
+      }
+      
+      const created = await scheduledMealsService.batchCreate(weekPlan);
+      
       setScheduledMeals(prev => [
-        ...prev.filter(m => !weekDates.includes(m.date)),
+        ...prev.filter(m => !weekDates.includes(m.date) || m.completed),
         ...created
       ]);
       
@@ -210,7 +253,7 @@ export const AppProvider = ({ children }) => {
       showToast('Error al generar el plan semanal', 'error');
       throw err;
     }
-  }, [meals, mealTimes, deliveryRules, showToast]);
+  }, [meals, mealTimes, scheduledMeals, deliveryRules, showToast]);
 
   // Update a scheduled meal
   const updateScheduledMeal = useCallback(async (id, updates) => {
@@ -236,6 +279,20 @@ export const AppProvider = ({ children }) => {
     } catch (err) {
       console.error('Error deleting scheduled meal:', err);
       showToast('Error al eliminar', 'error');
+      throw err;
+    }
+  }, [showToast]);
+
+  // Create a single scheduled meal
+  const createScheduledMeal = useCallback(async (mealData) => {
+    try {
+      const created = await scheduledMealsService.create(mealData);
+      setScheduledMeals(prev => [...prev, created]);
+      showToast('Comida programada');
+      return created;
+    } catch (err) {
+      console.error('Error creating scheduled meal:', err);
+      showToast('Error al crear comida', 'error');
       throw err;
     }
   }, [showToast]);
@@ -462,6 +519,7 @@ export const AppProvider = ({ children }) => {
     generateWeekMealPlan,
     
     // Scheduled meals
+    createScheduledMeal,
     updateScheduledMeal,
     deleteScheduledMeal,
     

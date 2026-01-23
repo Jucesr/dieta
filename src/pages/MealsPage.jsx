@@ -1,10 +1,55 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import Modal from '../components/ui/Modal';
 import Loading from '../components/ui/Loading';
 import EmptyState from '../components/ui/EmptyState';
 import { DIFFICULTY_OPTIONS, LABEL_OPTIONS, UNIT_OPTIONS } from '../models/types';
 import './MealsPage.css';
+
+// CSV parsing helper
+const parseCSV = (text) => {
+  const lines = text.split('\n').filter(line => line.trim());
+  if (lines.length === 0) return [];
+  
+  const headers = parseCSVLine(lines[0]);
+  const rows = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    if (values.some(v => v.trim())) {
+      const row = {};
+      headers.forEach((header, index) => {
+        row[header.trim()] = values[index]?.trim() || '';
+      });
+      rows.push(row);
+    }
+  }
+  
+  return rows;
+};
+
+// Handle CSV fields with quotes and commas
+const parseCSVLine = (line) => {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  
+  return result;
+};
 
 const MealsPage = () => {
   const { 
@@ -15,13 +60,21 @@ const MealsPage = () => {
     loading, 
     createMeal, 
     updateMeal, 
-    deleteMeal 
+    deleteMeal,
+    showToast
   } = useApp();
 
   const [showForm, setShowForm] = useState(false);
   const [editingMeal, setEditingMeal] = useState(null);
   const [search, setSearch] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState('');
+  
+  // Import state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importPreview, setImportPreview] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const mealsFileRef = useRef(null);
+  const ingredientsFileRef = useRef(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -148,6 +201,119 @@ const MealsPage = () => {
     ));
   };
 
+  // Import handlers
+  const handleOpenImport = () => {
+    setImportPreview(null);
+    setShowImportModal(true);
+  };
+
+  const handleCloseImport = () => {
+    setShowImportModal(false);
+    setImportPreview(null);
+    if (mealsFileRef.current) mealsFileRef.current.value = '';
+    if (ingredientsFileRef.current) ingredientsFileRef.current.value = '';
+  };
+
+  const handleFilesSelected = async () => {
+    const mealsFile = mealsFileRef.current?.files[0];
+    const ingredientsFile = ingredientsFileRef.current?.files[0];
+    
+    if (!mealsFile) {
+      showToast('Por favor selecciona el archivo de comidas', 'error');
+      return;
+    }
+    
+    try {
+      // Parse meals CSV
+      const mealsText = await mealsFile.text();
+      const mealsData = parseCSV(mealsText);
+      
+      // Parse ingredients CSV if provided
+      let ingredientsData = [];
+      if (ingredientsFile) {
+        const ingredientsText = await ingredientsFile.text();
+        ingredientsData = parseCSV(ingredientsText);
+      }
+      
+      // Build preview data
+      const preview = {
+        meals: mealsData.filter(row => row.Codigo && row.Nombre).map(row => ({
+          code: row.Codigo,
+          name: row.Nombre,
+          difficulty: row.Dificultad || 'Sencillas',
+          labels: row.Etiquetas ? row.Etiquetas.split(',').map(l => l.trim()).filter(Boolean) : [],
+          preparation: row.Preparacion || '',
+          preference: row.Preferencia || '',
+          variations: row.Variaciones || '',
+          sideIds: row.Sides ? row.Sides.split(';').map(s => s.trim()).filter(Boolean) : [],
+          useCount: parseInt(row.Contador) || 0
+        })),
+        ingredients: ingredientsData
+          .filter(row => row['Meal Code'] && row.Nombre)
+          .map(row => ({
+            mealCode: row['Meal Code'],
+            ingredientName: row.Nombre,
+            unit: row.Unidad || 'gramos',
+            quantity: parseFloat(row.Cantidad) || 0
+          }))
+      };
+      
+      setImportPreview(preview);
+    } catch (err) {
+      console.error('Error parsing CSV:', err);
+      showToast('Error al leer los archivos CSV', 'error');
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importPreview || importPreview.meals.length === 0) return;
+    
+    setIsImporting(true);
+    let imported = 0;
+    let skipped = 0;
+    
+    try {
+      for (const mealData of importPreview.meals) {
+        // Check if meal already exists by code
+        const existing = meals.find(m => m.code === mealData.code);
+        if (existing) {
+          skipped++;
+          continue;
+        }
+        
+        // Get ingredients for this meal
+        const mealIngreds = importPreview.ingredients
+          .filter(ing => ing.mealCode === mealData.code)
+          .map(ing => ({
+            ingredientName: ing.ingredientName,
+            unit: ing.unit,
+            quantity: ing.quantity
+          }));
+        
+        // Resolve side IDs (they might be codes like S01, S02)
+        const resolvedSideIds = mealData.sideIds.map(sideRef => {
+          const side = sides.find(s => s.code === sideRef || s.id === sideRef);
+          return side?.id || sideRef;
+        }).filter(Boolean);
+        
+        await createMeal({
+          ...mealData,
+          sideIds: resolvedSideIds
+        }, mealIngreds);
+        
+        imported++;
+      }
+      
+      showToast(`Importadas ${imported} comidas${skipped > 0 ? `, ${skipped} omitidas (ya existían)` : ''}`);
+      handleCloseImport();
+    } catch (err) {
+      console.error('Error importing meals:', err);
+      showToast('Error durante la importación', 'error');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   if (loading) {
     return <Loading text="Cargando comidas..." />;
   }
@@ -156,9 +322,14 @@ const MealsPage = () => {
     <div className="meals-page">
       <header className="section-header">
         <h1 className="section-title">Comidas</h1>
-        <button className="btn btn-primary" onClick={handleOpenCreate}>
-          + Nueva
-        </button>
+        <div className="section-actions">
+          <button className="btn btn-secondary" onClick={handleOpenImport}>
+            📥 Importar CSV
+          </button>
+          <button className="btn btn-primary" onClick={handleOpenCreate}>
+            + Nueva
+          </button>
+        </div>
       </header>
 
       <div className="meals-filters">
@@ -402,6 +573,101 @@ const MealsPage = () => {
             />
           </div>
         </form>
+      </Modal>
+
+      {/* Import Modal */}
+      <Modal
+        isOpen={showImportModal}
+        onClose={handleCloseImport}
+        title="Importar Comidas desde CSV"
+        footer={
+          importPreview ? (
+            <>
+              <button className="btn btn-secondary" onClick={() => setImportPreview(null)}>
+                ← Volver
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleConfirmImport}
+                disabled={isImporting || importPreview.meals.length === 0}
+              >
+                {isImporting ? '⏳ Importando...' : `Importar ${importPreview.meals.length} comidas`}
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn btn-secondary" onClick={handleCloseImport}>
+                Cancelar
+              </button>
+              <button className="btn btn-primary" onClick={handleFilesSelected}>
+                Vista previa
+              </button>
+            </>
+          )
+        }
+      >
+        {!importPreview ? (
+          <div className="import-form">
+            <div className="import-info">
+              <p>Selecciona los archivos CSV para importar comidas.</p>
+              <p className="import-hint">
+                <strong>Formato de comidas:</strong> Codigo, Nombre, Dificultad, Etiquetas, Contador, Ingredientes, Preparacion, Preferencia, Variaciones, Sides
+              </p>
+              <p className="import-hint">
+                <strong>Formato de ingredientes:</strong> Meal Code, Nombre, Unidad, Cantidad
+              </p>
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Archivo de Comidas (requerido) *</label>
+              <input
+                type="file"
+                ref={mealsFileRef}
+                accept=".csv"
+                className="file-input"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Archivo de Ingredientes (opcional)</label>
+              <input
+                type="file"
+                ref={ingredientsFileRef}
+                accept=".csv"
+                className="file-input"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="import-preview">
+            <div className="import-summary">
+              <div className="import-stat">
+                <span className="import-stat-number">{importPreview.meals.length}</span>
+                <span className="import-stat-label">comidas</span>
+              </div>
+              <div className="import-stat">
+                <span className="import-stat-number">{importPreview.ingredients.length}</span>
+                <span className="import-stat-label">ingredientes</span>
+              </div>
+            </div>
+            
+            <div className="import-preview-list">
+              <h4>Comidas a importar:</h4>
+              <div className="import-meals-list">
+                {importPreview.meals.slice(0, 10).map((meal, index) => (
+                  <div key={index} className="import-meal-item">
+                    <span className="import-meal-code">{meal.code}</span>
+                    <span className="import-meal-name">{meal.name}</span>
+                    <span className="badge">{meal.difficulty}</span>
+                  </div>
+                ))}
+                {importPreview.meals.length > 10 && (
+                  <p className="import-more">... y {importPreview.meals.length - 10} más</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

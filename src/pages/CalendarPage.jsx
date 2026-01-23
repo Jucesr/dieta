@@ -6,18 +6,22 @@ import WeekView from '../components/calendar/WeekView';
 import DayMeals from '../components/calendar/DayMeals';
 import MealPicker from '../components/calendar/MealPicker';
 import Loading from '../components/ui/Loading';
+import { pickMeal } from '../services/mealPickerService';
 import './CalendarPage.css';
 
 const CalendarPage = () => {
   const {
     loading,
+    meals,
     scheduledMeals,
     mealTimes,
+    deliveryRules,
     selectedDate,
     setSelectedDate,
     loadScheduledMeals,
     generateDayMealPlan,
     generateWeekMealPlan,
+    createScheduledMeal,
     updateScheduledMeal,
     deleteScheduledMeal
   } = useApp();
@@ -25,6 +29,7 @@ const CalendarPage = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showMealPicker, setShowMealPicker] = useState(false);
   const [editingMeal, setEditingMeal] = useState(null);
+  const [addingMealTime, setAddingMealTime] = useState(null);
 
   // Load scheduled meals for current week
   const loadWeekMeals = useCallback(async () => {
@@ -89,6 +94,61 @@ const CalendarPage = () => {
         selectedSideId: newMeal.sideIds?.[0] || null
       });
       setEditingMeal(null);
+    } else if (addingMealTime) {
+      // Creating a new meal for this slot
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      await createScheduledMeal({
+        date: dateStr,
+        mealTime: addingMealTime,
+        mealId: newMeal.id,
+        mealName: newMeal.name,
+        selectedSideId: newMeal.sideIds?.[0] || null,
+        servings: 1,
+        isDelivery: false,
+        completed: false
+      });
+      setAddingMealTime(null);
+    }
+  };
+
+  const handleAddMeal = (mealTime) => {
+    setAddingMealTime(mealTime);
+    setEditingMeal(null);
+    setShowMealPicker(true);
+  };
+
+  const handleRandomMeal = async (mealTime) => {
+    setIsGenerating(true);
+    try {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      const picked = pickMeal({
+        meals,
+        mealTime,
+        date: dateStr,
+        recentMeals: scheduledMeals,
+        deliveryRules,
+        config: {
+          avoidRepetition: true,
+          repetitionWindow: 7,
+          respectPreferences: true,
+          balanceDifficulty: true
+        }
+      });
+      
+      if (picked) {
+        await createScheduledMeal({
+          date: dateStr,
+          mealTime,
+          mealId: picked.id,
+          mealName: picked.name,
+          selectedSideId: picked.sideIds?.[0] || null,
+          servings: 1,
+          isDelivery: picked.isDelivery || false,
+          completed: false
+        });
+      }
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -149,6 +209,8 @@ const CalendarPage = () => {
         scheduledMeals={scheduledMeals}
         onEditMeal={handleEditMeal}
         onDeleteMeal={handleDeleteMeal}
+        onAddMeal={handleAddMeal}
+        onRandomMeal={handleRandomMeal}
         mealTimes={mealTimes}
       />
 
@@ -157,9 +219,10 @@ const CalendarPage = () => {
         onClose={() => {
           setShowMealPicker(false);
           setEditingMeal(null);
+          setAddingMealTime(null);
         }}
         onSelect={handleMealSelect}
-        mealTime={editingMeal?.mealTime}
+        mealTime={editingMeal?.mealTime || addingMealTime}
         currentMealId={editingMeal?.mealId}
       />
     </div>

@@ -7,7 +7,15 @@ import { MEAL_TIME_OPTIONS } from '../../models/types';
 import { useApp } from '../../context/AppContext';
 import './DayMeals.css';
 
-const DayMeals = ({ date, scheduledMeals, onEditMeal, onDeleteMeal, mealTimes }) => {
+const DayMeals = ({ 
+  date, 
+  scheduledMeals, 
+  onEditMeal, 
+  onDeleteMeal, 
+  onAddMeal,
+  onRandomMeal,
+  mealTimes 
+}) => {
   const { meals } = useApp();
   
   const dateStr = format(date, 'yyyy-MM-dd');
@@ -59,13 +67,31 @@ const DayMeals = ({ date, scheduledMeals, onEditMeal, onDeleteMeal, mealTimes })
               />
             );
           }
-          // Show placeholder for missing meal time
+          // Show placeholder for missing meal time with options to add
           return (
             <div key={mealTime} className="meal-placeholder">
-              <span className="meal-placeholder-icon">{config?.icon}</span>
-              <span className="meal-placeholder-text">
-                Sin {config?.label.toLowerCase()}
-              </span>
+              <div className="meal-placeholder-info">
+                <span className="meal-placeholder-icon">{config?.icon}</span>
+                <span className="meal-placeholder-text">
+                  Sin {config?.label.toLowerCase()}
+                </span>
+              </div>
+              <div className="meal-placeholder-actions">
+                <button 
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => onAddMeal?.(mealTime)}
+                  title="Elegir comida"
+                >
+                  📝 Elegir
+                </button>
+                <button 
+                  className="btn btn-sm btn-primary"
+                  onClick={() => onRandomMeal?.(mealTime)}
+                  title="Generar aleatorio"
+                >
+                  🎲 Aleatorio
+                </button>
+              </div>
             </div>
           );
         })}

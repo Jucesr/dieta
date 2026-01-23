@@ -11,11 +11,21 @@ const SidesPage = () => {
     sides, 
     sideIngredients,
     ingredients,
+    meals,
     loading, 
     createSide, 
     updateSide, 
-    deleteSide 
+    deleteSide,
+    showToast
   } = useApp();
+
+  // Helper function to check if side is used in any meal
+  const getSideUsage = (sideId) => {
+    const usedInMeals = meals.filter(meal => 
+      meal.sideIds?.includes(sideId) || meal.sideIds?.includes(sides.find(s => s.id === sideId)?.code)
+    );
+    return { usedInMeals, isUsed: usedInMeals.length > 0 };
+  };
 
   const [showForm, setShowForm] = useState(false);
   const [editingSide, setEditingSide] = useState(null);
@@ -90,6 +100,20 @@ const SidesPage = () => {
   };
 
   const handleDelete = async (side) => {
+    const usage = getSideUsage(side.id);
+    
+    if (usage.isUsed) {
+      const mealCount = usage.usedInMeals.length;
+      const mealNames = usage.usedInMeals.slice(0, 3).map(m => m.name).join(', ');
+      let message = `No se puede eliminar "${side.name}" porque está asignada a ${mealCount} comida${mealCount > 1 ? 's' : ''}: ${mealNames}`;
+      if (mealCount > 3) {
+        message += '...';
+      }
+      
+      showToast(message, 'error');
+      return;
+    }
+    
     if (confirm(`¿Eliminar "${side.name}"?`)) {
       await deleteSide(side.id);
     }

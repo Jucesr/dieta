@@ -236,6 +236,17 @@ input::placeholder, textarea::placeholder {
   background: rgba(233, 69, 96, 0.1);
 }
 
+.btn-success {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-success:hover {
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+  transform: translateY(-2px);
+}
+
 .btn-icon {
   width: 40px;
   height: 40px;

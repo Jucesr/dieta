@@ -14,6 +14,15 @@
   background: linear-gradient(135deg, var(--bg-card) 0%, rgba(56, 189, 248, 0.1) 100%);
 }
 
+.meal-card.completed {
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(74, 222, 128, 0.1) 100%);
+  border-left-color: var(--accent-success, #4ade80);
+}
+
+.meal-card.completed .meal-card-name {
+  color: var(--text-secondary);
+}
+
 .meal-card-header {
   display: flex;
   align-items: center;
@@ -58,6 +67,18 @@
   font-weight: 500;
   background: rgba(56, 189, 248, 0.2);
   color: var(--accent-info);
+  border-radius: var(--radius-sm);
+}
+
+.completed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: rgba(74, 222, 128, 0.2);
+  color: var(--accent-success, #4ade80);
   border-radius: var(--radius-sm);
 }
 
@@ -123,4 +144,49 @@
   display: flex;
   gap: 0.5rem;
   padding-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Complete Modal Styles */
+.complete-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.complete-modal-info {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.complete-ingredients-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.complete-ingredient-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.complete-ingredient-row input[type="text"] {
+  flex: 1;
+  min-width: 120px;
+}
+
+.complete-ingredient-row input[type="number"] {
+  width: 70px;
+}
+
+.complete-ingredient-row select {
+  width: 100px;
+}
+
+.complete-ingredient-row .btn-icon {
+  flex-shrink: 0;
 }

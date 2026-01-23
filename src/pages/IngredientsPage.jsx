@@ -8,11 +8,36 @@ import './IngredientsPage.css';
 const IngredientsPage = () => {
   const { 
     ingredients, 
+    mealIngredients,
+    sideIngredients,
     loading, 
     createIngredient, 
     updateIngredient, 
-    deleteIngredient 
+    deleteIngredient,
+    showToast
   } = useApp();
+
+  // Helper function to check if ingredient is used in any meal or side
+  const getIngredientUsage = (ingredientName) => {
+    const usedInMeals = [];
+    const usedInSides = [];
+    
+    // Check meal ingredients
+    Object.entries(mealIngredients).forEach(([mealId, ings]) => {
+      if (ings.some(ing => ing.ingredientName?.toLowerCase() === ingredientName?.toLowerCase())) {
+        usedInMeals.push(mealId);
+      }
+    });
+    
+    // Check side ingredients
+    Object.entries(sideIngredients).forEach(([sideId, ings]) => {
+      if (ings.some(ing => ing.ingredientName?.toLowerCase() === ingredientName?.toLowerCase())) {
+        usedInSides.push(sideId);
+      }
+    });
+    
+    return { usedInMeals, usedInSides, isUsed: usedInMeals.length > 0 || usedInSides.length > 0 };
+  };
 
   const [showForm, setShowForm] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState(null);
@@ -65,6 +90,25 @@ const IngredientsPage = () => {
   };
 
   const handleDelete = async (ingredient) => {
+    const usage = getIngredientUsage(ingredient.name);
+    
+    if (usage.isUsed) {
+      const mealCount = usage.usedInMeals.length;
+      const sideCount = usage.usedInSides.length;
+      let message = `No se puede eliminar "${ingredient.name}" porque está siendo usado en `;
+      
+      if (mealCount > 0 && sideCount > 0) {
+        message += `${mealCount} comida${mealCount > 1 ? 's' : ''} y ${sideCount} guarnición${sideCount > 1 ? 'es' : ''}`;
+      } else if (mealCount > 0) {
+        message += `${mealCount} comida${mealCount > 1 ? 's' : ''}`;
+      } else {
+        message += `${sideCount} guarnición${sideCount > 1 ? 'es' : ''}`;
+      }
+      
+      showToast(message, 'error');
+      return;
+    }
+    
     if (confirm(`¿Eliminar "${ingredient.name}"?`)) {
       await deleteIngredient(ingredient.id);
     }

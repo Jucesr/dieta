@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { format, startOfWeek, addDays } from 'date-fns';
+import React, { useState, useMemo, useEffect } from 'react';
+import { format, startOfWeek, endOfWeek, addDays, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import { aggregateIngredients, getMealsUsingIngredient } from '../services/shoppingListService';
@@ -14,16 +14,44 @@ const ShoppingListPage = () => {
     scheduledMeals, 
     mealIngredients, 
     sideIngredients,
-    selectedDate 
+    selectedDate,
+    setSelectedDate,
+    loadScheduledMeals
   } = useApp();
+  
+  const [localSelectedDate, setLocalSelectedDate] = useState(selectedDate);
 
   const [selectedDays, setSelectedDays] = useState(new Set([0, 1, 2, 3, 4, 5, 6]));
   const [viewMode, setViewMode] = useState('week'); // 'week' | 'custom'
   const [selectedIngredient, setSelectedIngredient] = useState(null);
-  const [checkedItems, setCheckedItems] = useState(new Set());
+  // Store checked items per week (keyed by week start date string)
+  const [checkedItemsByWeek, setCheckedItemsByWeek] = useState({});
 
-  // Get week days
-  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+  // Get week days using local selected date
+  const weekStart = startOfWeek(localSelectedDate, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(localSelectedDate, { weekStartsOn: 1 });
+  
+  // Memoize the formatted date strings to avoid infinite loops
+  const weekStartStr = format(weekStart, 'yyyy-MM-dd');
+  const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+
+  // Load scheduled meals when week changes
+  useEffect(() => {
+    loadScheduledMeals(weekStartStr, weekEndStr);
+  }, [weekStartStr, weekEndStr, loadScheduledMeals]);
+
+  // Week navigation handlers
+  const handlePrevWeek = () => {
+    setLocalSelectedDate(subWeeks(localSelectedDate, 1));
+  };
+
+  const handleNextWeek = () => {
+    setLocalSelectedDate(addWeeks(localSelectedDate, 1));
+  };
+
+  const handleToday = () => {
+    setLocalSelectedDate(new Date());
+  };
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(weekStart, i);
     return {
@@ -77,14 +105,21 @@ const ShoppingListPage = () => {
     setViewMode('week');
   };
 
+  // Get checked items for the current week
+  const checkedItems = checkedItemsByWeek[weekStartStr] || new Set();
+
   const handleToggleItem = (itemName) => {
-    const newChecked = new Set(checkedItems);
+    const currentWeekChecked = checkedItemsByWeek[weekStartStr] || new Set();
+    const newChecked = new Set(currentWeekChecked);
     if (newChecked.has(itemName)) {
       newChecked.delete(itemName);
     } else {
       newChecked.add(itemName);
     }
-    setCheckedItems(newChecked);
+    setCheckedItemsByWeek(prev => ({
+      ...prev,
+      [weekStartStr]: newChecked
+    }));
   };
 
   if (loading) {
@@ -102,6 +137,23 @@ const ShoppingListPage = () => {
           {shoppingList.length} ingrediente{shoppingList.length !== 1 ? 's' : ''}
         </span>
       </header>
+
+      <div className="shopping-week-nav">
+        <div className="shopping-nav-buttons">
+          <button className="btn btn-icon btn-secondary" onClick={handlePrevWeek}>
+            ←
+          </button>
+          <button className="btn btn-sm btn-secondary" onClick={handleToday}>
+            Hoy
+          </button>
+          <button className="btn btn-icon btn-secondary" onClick={handleNextWeek}>
+            →
+          </button>
+        </div>
+        <div className="shopping-week-label">
+          {format(weekStart, "d MMM", { locale: es })} - {format(weekEnd, "d MMM yyyy", { locale: es })}
+        </div>
+      </div>
 
       <div className="shopping-filters">
         <div className="day-toggles">
