@@ -10,7 +10,8 @@ import './DayMeals.css';
 const DayMeals = ({ 
   date, 
   scheduledMeals, 
-  onEditMeal, 
+  onEditMeal,
+  onQuickChangeMeal, 
   onDeleteMeal, 
   onAddMeal,
   onRandomMeal,
@@ -63,6 +64,7 @@ const DayMeals = ({
                 key={meal.id}
                 scheduledMeal={meal}
                 onEdit={() => onEditMeal(meal)}
+                onQuickChange={() => onQuickChangeMeal?.(meal)}
                 onDelete={() => onDeleteMeal(meal)}
               />
             );

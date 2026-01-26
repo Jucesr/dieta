@@ -68,46 +68,7 @@
   gap: 0.375rem;
 }
 
-/* Form styles */
-.meal-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.form-row {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.form-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-}
-
-.form-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.5rem;
-}
-
-.ingredients-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.ingredient-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.ingredient-row input:first-child {
-  flex: 1;
-}
+/* Form styles moved to shared MealForm component */
 
 /* Section header actions */
 .section-actions {
@@ -230,18 +191,6 @@
 }
 
 @media (max-width: 480px) {
-  .form-row {
-    flex-direction: column;
-  }
-  
-  .ingredient-row {
-    flex-wrap: wrap;
-  }
-  
-  .ingredient-row input:first-child {
-    width: 100%;
-  }
-  
   .section-actions {
     flex-direction: column;
   }

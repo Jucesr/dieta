@@ -1,0 +1,84 @@
+.meal-form {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.meal-form .form-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.meal-form .form-group {
+  margin-bottom: 1rem;
+}
+
+.meal-form .form-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.meal-form .form-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.meal-form input[type="text"],
+.meal-form input[type="number"],
+.meal-form select,
+.meal-form textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: border-color 0.2s;
+}
+
+.meal-form input:focus,
+.meal-form select:focus,
+.meal-form textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.meal-form .form-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.meal-form .ingredients-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.meal-form .ingredient-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.meal-form .ingredient-row input[type="text"] {
+  flex: 1;
+}
+
+@media (max-width: 480px) {
+  .meal-form .form-row {
+    flex-direction: column;
+  }
+  
+  .meal-form .ingredient-row {
+    flex-wrap: wrap;
+  }
+}

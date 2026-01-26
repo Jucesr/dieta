@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
-import { MEAL_TIME_OPTIONS, SERVING_OPTIONS, UNIT_OPTIONS } from '../../models/types';
+import { MEAL_TIME_OPTIONS } from '../../models/types';
 import { useApp } from '../../context/AppContext';
 import NumberStepper from '../ui/NumberStepper';
 import Modal from '../ui/Modal';
 import './MealCard.css';
 
-const MealCard = ({ scheduledMeal, onEdit, onDelete }) => {
-  const { sides, meals, mealIngredients, sideIngredients, ingredients, updateScheduledMeal } = useApp();
+const MealCard = ({ scheduledMeal, onEdit, onQuickChange, onDelete }) => {
+  const { sides, meals, updateScheduledMeal } = useApp();
   const [expanded, setExpanded] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
-  const [customIngredients, setCustomIngredients] = useState([]);
   
   const mealTimeConfig = MEAL_TIME_OPTIONS.find(
     opt => opt.value === scheduledMeal.mealTime
@@ -30,61 +29,18 @@ const MealCard = ({ scheduledMeal, onEdit, onDelete }) => {
   };
 
   const handleOpenComplete = () => {
-    // Initialize custom ingredients from meal and side ingredients
-    const mealIngs = mealIngredients[scheduledMeal.mealId] || [];
-    const sideIngs = scheduledMeal.selectedSideId 
-      ? (sideIngredients[scheduledMeal.selectedSideId] || [])
-      : [];
-    
-    // Combine and adjust quantities based on servings
-    const servings = scheduledMeal.servings || 1;
-    const combined = [
-      ...mealIngs.map(ing => ({
-        ingredientName: ing.ingredientName,
-        quantity: (ing.quantity || 0) * servings,
-        unit: ing.unit || 'gramos',
-        source: 'meal'
-      })),
-      ...sideIngs.map(ing => ({
-        ingredientName: ing.ingredientName,
-        quantity: (ing.quantity || 0) * servings,
-        unit: ing.unit || 'gramos',
-        source: 'side'
-      }))
-    ];
-    
-    // Use existing custom ingredients if saved, otherwise use combined
-    setCustomIngredients(scheduledMeal.customIngredients || combined);
     setShowCompleteModal(true);
   };
 
   const handleCompleteConfirm = async () => {
     await updateScheduledMeal(scheduledMeal.id, { 
-      completed: true,
-      customIngredients 
+      completed: true
     });
     setShowCompleteModal(false);
   };
 
   const handleUncomplete = async () => {
     await updateScheduledMeal(scheduledMeal.id, { completed: false });
-  };
-
-  const handleIngredientChange = (index, field, value) => {
-    setCustomIngredients(prev => prev.map((ing, i) => 
-      i === index ? { ...ing, [field]: value } : ing
-    ));
-  };
-
-  const handleAddIngredient = () => {
-    setCustomIngredients(prev => [
-      ...prev,
-      { ingredientName: '', unit: 'gramos', quantity: 0, source: 'custom' }
-    ]);
-  };
-
-  const handleRemoveIngredient = (index) => {
-    setCustomIngredients(prev => prev.filter((_, i) => i !== index));
   };
 
   // Build display name: meal name + side name if exists
@@ -151,6 +107,19 @@ const MealCard = ({ scheduledMeal, onEdit, onDelete }) => {
             )}
             
             <div className="meal-card-actions">
+              
+              <button className="btn btn-sm" onClick={onEdit}>
+                ✏️ Editar
+              </button>
+              {onQuickChange && (
+                <button className="btn btn-secondary btn-sm" onClick={onQuickChange}>
+                  🔄 Cambiar
+                </button>
+              )}
+              <button className="btn btn-outline btn-sm" onClick={onDelete}>
+                🗑️ Eliminar
+              </button>
+
               {scheduledMeal.completed ? (
                 <button className="btn btn-secondary btn-sm" onClick={handleUncomplete}>
                   ↩️ Desmarcar
@@ -160,12 +129,6 @@ const MealCard = ({ scheduledMeal, onEdit, onDelete }) => {
                   ✓ Completar
                 </button>
               )}
-              <button className="btn btn-secondary btn-sm" onClick={onEdit}>
-                ✏️ Cambiar
-              </button>
-              <button className="btn btn-outline btn-sm" onClick={onDelete}>
-                🗑️ Eliminar
-              </button>
             </div>
           </div>
         )}
@@ -174,7 +137,7 @@ const MealCard = ({ scheduledMeal, onEdit, onDelete }) => {
       <Modal
         isOpen={showCompleteModal}
         onClose={() => setShowCompleteModal(false)}
-        title="Completar comida - Ajustar ingredientes"
+        title="Completar comida"
         footer={
           <>
             <button className="btn btn-secondary" onClick={() => setShowCompleteModal(false)}>
@@ -188,59 +151,11 @@ const MealCard = ({ scheduledMeal, onEdit, onDelete }) => {
       >
         <div className="complete-modal-content">
           <p className="complete-modal-info">
-            Ajusta las cantidades de ingredientes usados para {displayName}
+            ¿Marcar "{displayName}" como completado?
           </p>
-          
-          <div className="complete-ingredients-list">
-            {customIngredients.map((ing, index) => (
-              <div key={index} className="complete-ingredient-row">
-                <input
-                  type="text"
-                  placeholder="Ingrediente"
-                  value={ing.ingredientName}
-                  onChange={(e) => handleIngredientChange(index, 'ingredientName', e.target.value)}
-                  list="complete-ingredients-datalist"
-                />
-                <input
-                  type="number"
-                  placeholder="Cant"
-                  value={ing.quantity || ''}
-                  onChange={(e) => handleIngredientChange(index, 'quantity', Number(e.target.value))}
-                  style={{ width: '70px' }}
-                />
-                <select
-                  value={ing.unit}
-                  onChange={(e) => handleIngredientChange(index, 'unit', e.target.value)}
-                  style={{ width: '100px' }}
-                >
-                  {UNIT_OPTIONS.map(unit => (
-                    <option key={unit} value={unit}>{unit}</option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="btn btn-icon btn-outline"
-                  onClick={() => handleRemoveIngredient(index)}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-          
-          <button 
-            type="button" 
-            className="btn btn-sm btn-secondary"
-            onClick={handleAddIngredient}
-          >
-            + Agregar ingrediente
-          </button>
-          
-          <datalist id="complete-ingredients-datalist">
-            {ingredients.map(ing => (
-              <option key={ing.id} value={ing.name} />
-            ))}
-          </datalist>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+            Los ingredientes de esta comida se calcularán automáticamente desde la lista de compras.
+          </p>
         </div>
       </Modal>
     </>

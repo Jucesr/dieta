@@ -304,6 +304,9 @@ export const AppProvider = ({ children }) => {
       if (ingredientsList.length > 0) {
         await mealIngredientsService.batchUpdate(meal.id, ingredientsList);
         setMealIngredients(prev => ({ ...prev, [meal.id]: ingredientsList }));
+        // Reload ingredients to show any auto-created ones
+        const updatedIngredients = await ingredientsService.getAll();
+        setIngredients(updatedIngredients);
       }
       setMeals(prev => [...prev, meal]);
       showToast('Comida creada');
@@ -321,6 +324,9 @@ export const AppProvider = ({ children }) => {
       if (ingredientsList !== null) {
         await mealIngredientsService.batchUpdate(id, ingredientsList);
         setMealIngredients(prev => ({ ...prev, [id]: ingredientsList }));
+        // Reload ingredients to show any auto-created ones
+        const updatedIngredients = await ingredientsService.getAll();
+        setIngredients(updatedIngredients);
       }
       setMeals(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
       showToast('Comida actualizada');
@@ -393,6 +399,9 @@ export const AppProvider = ({ children }) => {
       if (ingredientsList.length > 0) {
         await sideIngredientsService.batchUpdate(side.id, ingredientsList);
         setSideIngredients(prev => ({ ...prev, [side.id]: ingredientsList }));
+        // Reload ingredients to show any auto-created ones
+        const updatedIngredients = await ingredientsService.getAll();
+        setIngredients(updatedIngredients);
       }
       setSides(prev => [...prev, side]);
       showToast('Guarnición creada');
@@ -410,6 +419,9 @@ export const AppProvider = ({ children }) => {
       if (ingredientsList !== null) {
         await sideIngredientsService.batchUpdate(id, ingredientsList);
         setSideIngredients(prev => ({ ...prev, [id]: ingredientsList }));
+        // Reload ingredients to show any auto-created ones
+        const updatedIngredients = await ingredientsService.getAll();
+        setIngredients(updatedIngredients);
       }
       setSides(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
       showToast('Guarnición actualizada');

@@ -5,7 +5,9 @@ import { useApp } from '../context/AppContext';
 import WeekView from '../components/calendar/WeekView';
 import DayMeals from '../components/calendar/DayMeals';
 import MealPicker from '../components/calendar/MealPicker';
+import MealForm from '../components/forms/MealForm';
 import Loading from '../components/ui/Loading';
+import Modal from '../components/ui/Modal';
 import { pickMeal } from '../services/mealPickerService';
 import './CalendarPage.css';
 
@@ -13,6 +15,7 @@ const CalendarPage = () => {
   const {
     loading,
     meals,
+    mealIngredients,
     scheduledMeals,
     mealTimes,
     deliveryRules,
@@ -23,13 +26,28 @@ const CalendarPage = () => {
     generateWeekMealPlan,
     createScheduledMeal,
     updateScheduledMeal,
-    deleteScheduledMeal
+    deleteScheduledMeal,
+    updateMeal
   } = useApp();
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [showMealPicker, setShowMealPicker] = useState(false);
-  const [editingMeal, setEditingMeal] = useState(null);
+  const [showMealEditModal, setShowMealEditModal] = useState(false);
+  const [editingScheduledMeal, setEditingScheduledMeal] = useState(null);
   const [addingMealTime, setAddingMealTime] = useState(null);
+  
+  // Full meal edit form state
+  const [mealFormData, setMealFormData] = useState({
+    code: '',
+    name: '',
+    difficulty: 'Sencillas',
+    labels: [],
+    sideIds: [],
+    preparation: '',
+    variations: '',
+    preference: ''
+  });
+  const [mealFormIngredients, setMealFormIngredients] = useState([]);
 
   // Load scheduled meals for current week
   const loadWeekMeals = useCallback(async () => {
@@ -75,8 +93,28 @@ const CalendarPage = () => {
     }
   };
 
-  const handleEditMeal = (meal) => {
-    setEditingMeal(meal);
+  const handleEditMeal = (scheduledMeal) => {
+    // Find the actual meal data
+    const meal = meals.find(m => m.id === scheduledMeal.mealId);
+    if (!meal) return;
+    
+    setEditingScheduledMeal(scheduledMeal);
+    setMealFormData({
+      code: meal.code || '',
+      name: meal.name || '',
+      difficulty: meal.difficulty || 'Sencillas',
+      labels: meal.labels || [],
+      sideIds: meal.sideIds || [],
+      preparation: meal.preparation || '',
+      variations: meal.variations || '',
+      preference: meal.preference || ''
+    });
+    setMealFormIngredients(mealIngredients[meal.id] || []);
+    setShowMealEditModal(true);
+  };
+
+  const handleQuickChangeMeal = (meal) => {
+    setEditingScheduledMeal(meal);
     setShowMealPicker(true);
   };
 
@@ -87,13 +125,13 @@ const CalendarPage = () => {
   };
 
   const handleMealSelect = async (newMeal) => {
-    if (editingMeal) {
-      await updateScheduledMeal(editingMeal.id, {
+    if (editingScheduledMeal) {
+      await updateScheduledMeal(editingScheduledMeal.id, {
         mealId: newMeal.id,
         mealName: newMeal.name,
         selectedSideId: newMeal.sideIds?.[0] || null
       });
-      setEditingMeal(null);
+      setEditingScheduledMeal(null);
     } else if (addingMealTime) {
       // Creating a new meal for this slot
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -111,9 +149,69 @@ const CalendarPage = () => {
     }
   };
 
+  const handleSaveMealEdit = async () => {
+    if (!editingScheduledMeal) return;
+    
+    const meal = meals.find(m => m.id === editingScheduledMeal.mealId);
+    if (!meal) return;
+    
+    // Update the meal definition
+    await updateMeal(meal.id, mealFormData, mealFormIngredients);
+    
+    // Update the scheduled meal name if it changed
+    if (mealFormData.name !== meal.name) {
+      await updateScheduledMeal(editingScheduledMeal.id, {
+        mealName: mealFormData.name
+      });
+    }
+    
+    setShowMealEditModal(false);
+    setEditingScheduledMeal(null);
+  };
+
+  const handleCloseMealEdit = () => {
+    setShowMealEditModal(false);
+    setEditingScheduledMeal(null);
+  };
+
+  const handleLabelToggle = (label) => {
+    setMealFormData(prev => ({
+      ...prev,
+      labels: prev.labels.includes(label)
+        ? prev.labels.filter(l => l !== label)
+        : [...prev.labels, label]
+    }));
+  };
+
+  const handleSideToggle = (sideId) => {
+    setMealFormData(prev => ({
+      ...prev,
+      sideIds: prev.sideIds.includes(sideId)
+        ? prev.sideIds.filter(s => s !== sideId)
+        : [...prev.sideIds, sideId]
+    }));
+  };
+
+  const handleAddIngredient = () => {
+    setMealFormIngredients(prev => [
+      ...prev,
+      { ingredientName: '', unit: 'gramos', quantity: 0 }
+    ]);
+  };
+
+  const handleRemoveIngredient = (index) => {
+    setMealFormIngredients(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleIngredientChange = (index, field, value) => {
+    setMealFormIngredients(prev => prev.map((ing, i) => 
+      i === index ? { ...ing, [field]: value } : ing
+    ));
+  };
+
   const handleAddMeal = (mealTime) => {
     setAddingMealTime(mealTime);
-    setEditingMeal(null);
+    setEditingScheduledMeal(null);
     setShowMealPicker(true);
   };
 
@@ -208,6 +306,7 @@ const CalendarPage = () => {
         date={selectedDate}
         scheduledMeals={scheduledMeals}
         onEditMeal={handleEditMeal}
+        onQuickChangeMeal={handleQuickChangeMeal}
         onDeleteMeal={handleDeleteMeal}
         onAddMeal={handleAddMeal}
         onRandomMeal={handleRandomMeal}
@@ -218,13 +317,42 @@ const CalendarPage = () => {
         isOpen={showMealPicker}
         onClose={() => {
           setShowMealPicker(false);
-          setEditingMeal(null);
+          setEditingScheduledMeal(null);
           setAddingMealTime(null);
         }}
         onSelect={handleMealSelect}
-        mealTime={editingMeal?.mealTime || addingMealTime}
-        currentMealId={editingMeal?.mealId}
+        mealTime={editingScheduledMeal?.mealTime || addingMealTime}
+        currentMealId={editingScheduledMeal?.mealId}
       />
+
+      <Modal
+        isOpen={showMealEditModal}
+        onClose={handleCloseMealEdit}
+        title="Editar Comida Completa"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={handleCloseMealEdit}>
+              Cancelar
+            </button>
+            <button className="btn btn-primary" onClick={handleSaveMealEdit}>
+              💾 Guardar cambios
+            </button>
+          </>
+        }
+      >
+        <MealForm
+          formData={mealFormData}
+          formIngredients={mealFormIngredients}
+          onFormDataChange={setMealFormData}
+          onIngredientChange={handleIngredientChange}
+          onAddIngredient={handleAddIngredient}
+          onRemoveIngredient={handleRemoveIngredient}
+          onLabelToggle={handleLabelToggle}
+          onSideToggle={handleSideToggle}
+          onSubmit={(e) => { e.preventDefault(); handleSaveMealEdit(); }}
+          datalistId="meal-edit-ingredients-datalist"
+        />
+      </Modal>
     </div>
   );
 };
