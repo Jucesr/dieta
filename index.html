@@ -14,5 +14,17 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Restore the path after redirect from 404.html
+      (function() {
+        var redirect = sessionStorage.getItem('redirectPath');
+        if (redirect && redirect.indexOf('__REDIRECT__') !== -1) {
+          sessionStorage.removeItem('redirectPath');
+          var parts = redirect.split('__REDIRECT__');
+          var newPath = parts[0] + parts[1];
+          history.replaceState(null, null, newPath);
+        }
+      })();
+    </script>
   </body>
 </html>

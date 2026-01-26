@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+    <script>
+      // GitHub Pages SPA redirect solution
+      // Store the current path and redirect to base URL
+      var pathSegmentsToKeep = 1; // Keep '/dieta'
+      
+      var l = window.location;
+      sessionStorage.setItem(
+        'redirectPath',
+        l.pathname.slice(0, l.pathname.indexOf('/', 1) + 1) + 
+        '__REDIRECT__' + 
+        l.pathname.slice(l.pathname.indexOf('/', 1) + 1) +
+        (l.search || '') +
+        (l.hash || '')
+      );
+      
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?redirect=1'
+      );
+    </script>
+  </head>
+  <body>
+    Redirecting...
+  </body>
+</html>
