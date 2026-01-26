@@ -52,8 +52,17 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.day-toggle {
+.day-toggle-wrapper {
   flex: 1;
+  min-width: 44px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.day-toggle {
+  width: 100%;
   min-width: 44px;
   display: flex;
   flex-direction: column;
@@ -71,6 +80,10 @@
 
 .day-toggle.active {
   background: var(--accent-primary);
+}
+
+.day-toggle.only {
+  box-shadow: 0 0 0 2px var(--accent-success);
 }
 
 .day-toggle-name {
@@ -92,6 +105,30 @@
 
 .day-toggle.active .day-toggle-number {
   color: white;
+}
+
+.day-toggle-only {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.55rem;
+  font-weight: 600;
+  padding: 0.1rem 0.3rem;
+  background: var(--accent-secondary);
+  color: white;
+  border-radius: 3px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.day-toggle-wrapper:hover .day-toggle-only {
+  opacity: 1;
+  visibility: visible;
+  bottom: -10px;
 }
 
 .shopping-list {

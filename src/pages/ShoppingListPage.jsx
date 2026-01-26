@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { format, startOfWeek, endOfWeek, addDays, addWeeks, subWeeks } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addDays, addWeeks, subWeeks, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import { aggregateIngredients, getMealsUsingIngredient } from '../services/shoppingListService';
@@ -100,6 +100,11 @@ const ShoppingListPage = () => {
     setViewMode('custom');
   };
 
+  const handleSelectOnlyDay = (index) => {
+    setSelectedDays(new Set([index]));
+    setViewMode('custom');
+  };
+
   const handleSelectAll = () => {
     setSelectedDays(new Set([0, 1, 2, 3, 4, 5, 6]));
     setViewMode('week');
@@ -158,14 +163,24 @@ const ShoppingListPage = () => {
       <div className="shopping-filters">
         <div className="day-toggles">
           {weekDays.map((day, index) => (
-            <button
-              key={day.dateStr}
-              className={`day-toggle ${selectedDays.has(index) ? 'active' : ''}`}
-              onClick={() => handleDayToggle(index)}
-            >
-              <span className="day-toggle-name">{day.dayName}</span>
-              <span className="day-toggle-number">{day.dayNumber}</span>
-            </button>
+            <div key={day.dateStr} className="day-toggle-wrapper">
+              <button
+                className={`day-toggle ${selectedDays.has(index) ? 'active' : ''} ${selectedDays.size === 1 && selectedDays.has(index) ? 'only' : ''}`}
+                onClick={() => handleDayToggle(index)}
+                onDoubleClick={() => handleSelectOnlyDay(index)}
+                title="Click: activar/desactivar | Doble click: solo este día"
+              >
+                <span className="day-toggle-name">{day.dayName}</span>
+                <span className="day-toggle-number">{day.dayNumber}</span>
+              </button>
+              <button
+                className="day-toggle-only"
+                onClick={() => handleSelectOnlyDay(index)}
+                title="Solo este día"
+              >
+                Solo
+              </button>
+            </div>
           ))}
         </div>
         <button 
@@ -258,7 +273,7 @@ const ShoppingListPage = () => {
             {mealsUsingIngredient.map(meal => (
               <div key={`${meal.id}-${meal.date}`} className="ingredient-meal-item">
                 <span className="ingredient-meal-date">
-                  {format(new Date(meal.date), "EEE d", { locale: es })}
+                  {format(parseISO(meal.date), "EEE d", { locale: es })}
                 </span>
                 <span className="ingredient-meal-time">{meal.mealTime}</span>
                 <span className="ingredient-meal-name">{meal.mealName}</span>
