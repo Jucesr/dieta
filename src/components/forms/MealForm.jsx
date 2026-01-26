@@ -12,10 +12,23 @@ const MealForm = ({
   onRemoveIngredient,
   onLabelToggle,
   onSideToggle,
-  onSubmit,
-  datalistId = 'meal-form-ingredients-datalist'
+  onSubmit
 }) => {
   const { sides, ingredients } = useApp();
+
+  // Handle ingredient selection from dropdown
+  const handleIngredientSelect = (index, ingredientId) => {
+    if (ingredientId) {
+      const selectedIngredient = ingredients.find(ing => ing.id === ingredientId);
+      if (selectedIngredient) {
+        onIngredientChange(index, 'ingredientId', ingredientId);
+        onIngredientChange(index, 'ingredientName', selectedIngredient.name);
+      }
+    } else {
+      onIngredientChange(index, 'ingredientId', '');
+      onIngredientChange(index, 'ingredientName', '');
+    }
+  };
 
   return (
     <form onSubmit={onSubmit} className="meal-form">
@@ -103,13 +116,21 @@ const MealForm = ({
         <div className="ingredients-list">
           {formIngredients.map((ing, index) => (
             <div key={index} className="ingredient-row">
-              <input
-                type="text"
-                placeholder="Ingrediente"
-                value={ing.ingredientName}
-                onChange={(e) => onIngredientChange(index, 'ingredientName', e.target.value)}
-                list={datalistId}
-              />
+              <select
+                value={ing.ingredientId || ''}
+                onChange={(e) => handleIngredientSelect(index, e.target.value)}
+                className="ingredient-select"
+              >
+                <option value="">Seleccionar ingrediente...</option>
+                {ingredients
+                  .slice()
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map(ingredient => (
+                    <option key={ingredient.id} value={ingredient.id}>
+                      {ingredient.name}
+                    </option>
+                  ))}
+              </select>
               <input
                 type="number"
                 placeholder="Cant"
@@ -136,11 +157,6 @@ const MealForm = ({
             </div>
           ))}
         </div>
-        <datalist id={datalistId}>
-          {ingredients.map(ing => (
-            <option key={ing.id} value={ing.name} />
-          ))}
-        </datalist>
       </div>
 
       <div className="form-group">

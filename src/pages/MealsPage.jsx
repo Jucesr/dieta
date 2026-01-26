@@ -5,6 +5,7 @@ import MealForm from '../components/forms/MealForm';
 import Loading from '../components/ui/Loading';
 import EmptyState from '../components/ui/EmptyState';
 import { DIFFICULTY_OPTIONS } from '../models/types';
+import { ingredientsService } from '../services/firebaseService';
 import './MealsPage.css';
 
 // CSV parsing helper
@@ -188,7 +189,7 @@ const MealsPage = () => {
   const handleAddIngredient = () => {
     setFormIngredients(prev => [
       ...prev,
-      { ingredientName: '', unit: 'gramos', quantity: 0 }
+      { ingredientId: '', ingredientName: '', unit: 'gramos', quantity: 0 }
     ]);
   };
 
@@ -274,6 +275,15 @@ const MealsPage = () => {
     let skipped = 0;
     
     try {
+      // Step 1: Extract all unique ingredient names from the CSV
+      const allIngredientNames = importPreview.ingredients
+        .map(ing => ing.ingredientName)
+        .filter(name => name && name.trim());
+      
+      // Step 2: Create ingredients in the ingredients table (or find existing)
+      const ingredientMap = await ingredientsService.bulkFindOrCreate(allIngredientNames);
+      
+      // Step 3: Import meals with properly linked ingredients
       for (const mealData of importPreview.meals) {
         // Check if meal already exists by code
         const existing = meals.find(m => m.code === mealData.code);
@@ -282,14 +292,18 @@ const MealsPage = () => {
           continue;
         }
         
-        // Get ingredients for this meal
+        // Get ingredients for this meal with proper ingredientId
         const mealIngreds = importPreview.ingredients
           .filter(ing => ing.mealCode === mealData.code)
-          .map(ing => ({
-            ingredientName: ing.ingredientName,
-            unit: ing.unit,
-            quantity: ing.quantity
-          }));
+          .map(ing => {
+            const ingredient = ingredientMap[ing.ingredientName];
+            return {
+              ingredientId: ingredient?.id || null,
+              ingredientName: ing.ingredientName,
+              unit: ing.unit,
+              quantity: ing.quantity
+            };
+          });
         
         // Resolve side IDs (they might be codes like S01, S02)
         const resolvedSideIds = mealData.sideIds.map(sideRef => {

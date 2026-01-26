@@ -104,11 +104,78 @@ export const ingredientsService = {
   getById: (id) => getDocument(COLLECTIONS.INGREDIENTS, id),
   create: (data) => createDocument(COLLECTIONS.INGREDIENTS, data),
   update: (id, data) => updateDocument(COLLECTIONS.INGREDIENTS, id, data),
-  delete: (id) => deleteDocument(COLLECTIONS.INGREDIENTS, id)
+  delete: (id) => deleteDocument(COLLECTIONS.INGREDIENTS, id),
+  findByName: async (name) => {
+    const q = query(
+      collection(db, COLLECTIONS.INGREDIENTS),
+      where('name', '==', name)
+    );
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      return { id: doc.id, ...doc.data() };
+    }
+    return null;
+  },
+  findOrCreate: async (name) => {
+    // Try to find existing ingredient by name
+    const existing = await ingredientsService.findByName(name);
+    if (existing) {
+      return existing;
+    }
+    // Create new ingredient
+    return createDocument(COLLECTIONS.INGREDIENTS, { name });
+  },
+  bulkFindOrCreate: async (names) => {
+    // Get unique names
+    const uniqueNames = [...new Set(names.filter(n => n && n.trim()))];
+    
+    // Get all existing ingredients
+    const allIngredients = await ingredientsService.getAll();
+    const existingByName = {};
+    allIngredients.forEach(ing => {
+      existingByName[ing.name.toLowerCase()] = ing;
+    });
+    
+    // Create missing ingredients
+    const results = {};
+    const batch = writeBatch(db);
+    const toCreate = [];
+    
+    for (const name of uniqueNames) {
+      const normalizedName = name.trim();
+      const existing = existingByName[normalizedName.toLowerCase()];
+      if (existing) {
+        results[normalizedName] = existing;
+      } else {
+        const docRef = doc(collection(db, COLLECTIONS.INGREDIENTS));
+        const data = {
+          name: normalizedName,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
+        };
+        batch.set(docRef, data);
+        toCreate.push({ id: docRef.id, name: normalizedName, docRef, data });
+      }
+    }
+    
+    if (toCreate.length > 0) {
+      await batch.commit();
+      toCreate.forEach(item => {
+        results[item.name] = { id: item.id, ...item.data };
+      });
+    }
+    
+    return results;
+  }
 };
 
 // Meal Ingredients
 export const mealIngredientsService = {
+  getAll: async () => {
+    const querySnapshot = await getDocs(collection(db, COLLECTIONS.MEAL_INGREDIENTS));
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
   getByMealId: async (mealId) => {
     const q = query(
       collection(db, COLLECTIONS.MEAL_INGREDIENTS),
@@ -164,6 +231,10 @@ export const sidesService = {
 
 // Side Ingredients
 export const sideIngredientsService = {
+  getAll: async () => {
+    const querySnapshot = await getDocs(collection(db, COLLECTIONS.SIDE_INGREDIENTS));
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
   getBySideId: async (sideId) => {
     const q = query(
       collection(db, COLLECTIONS.SIDE_INGREDIENTS),

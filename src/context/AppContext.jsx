@@ -80,12 +80,16 @@ export const AppProvider = ({ children }) => {
         mealsData,
         ingredientsData,
         sidesData,
-        rulesData
+        rulesData,
+        allMealIngredients,
+        allSideIngredients
       ] = await Promise.all([
         mealsService.getAll(),
         ingredientsService.getAll(),
         sidesService.getAll(),
-        deliveryRulesService.getAll()
+        deliveryRulesService.getAll(),
+        mealIngredientsService.getAll(),
+        sideIngredientsService.getAll()
       ]);
       
       setMeals(mealsData);
@@ -93,17 +97,23 @@ export const AppProvider = ({ children }) => {
       setSides(sidesData);
       setDeliveryRules(rulesData);
       
-      // Load ingredients for each meal
+      // Group meal ingredients by mealId
       const mealIngsMap = {};
-      for (const meal of mealsData) {
-        mealIngsMap[meal.id] = await mealIngredientsService.getByMealId(meal.id);
+      for (const ing of allMealIngredients) {
+        if (!mealIngsMap[ing.mealId]) {
+          mealIngsMap[ing.mealId] = [];
+        }
+        mealIngsMap[ing.mealId].push(ing);
       }
       setMealIngredients(mealIngsMap);
       
-      // Load ingredients for each side
+      // Group side ingredients by sideId
       const sideIngsMap = {};
-      for (const side of sidesData) {
-        sideIngsMap[side.id] = await sideIngredientsService.getBySideId(side.id);
+      for (const ing of allSideIngredients) {
+        if (!sideIngsMap[ing.sideId]) {
+          sideIngsMap[ing.sideId] = [];
+        }
+        sideIngsMap[ing.sideId].push(ing);
       }
       setSideIngredients(sideIngsMap);
       

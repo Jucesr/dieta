@@ -73,6 +73,11 @@
   flex: 1;
 }
 
+.meal-form .ingredient-row .ingredient-select {
+  flex: 1;
+  min-width: 150px;
+}
+
 @media (max-width: 480px) {
   .meal-form .form-row {
     flex-direction: column;
