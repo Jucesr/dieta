@@ -149,6 +149,7 @@ input::placeholder, textarea::placeholder {
 .page {
   flex: 1;
   padding: 1rem;
+  padding-top: 4rem;
   padding-bottom: 5rem;
   animation: fadeIn 0.3s ease;
 }
@@ -637,6 +638,7 @@ input::placeholder, textarea::placeholder {
 @media (min-width: 1024px) {
   .page {
     padding: 2rem;
+    padding-top: 4rem;
     padding-bottom: 2rem;
   }
 }

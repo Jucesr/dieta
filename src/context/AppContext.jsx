@@ -23,7 +23,7 @@ import { generateDayPlan, generateWeekPlan } from '../services/mealPickerService
 import { DEFAULT_MEAL_TIMES } from '../models/types';
 
 // Toggle this to use mock data instead of Firebase
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 // Select services based on mode
 const mealsService = USE_MOCK_DATA ? mockMealsService : firebaseMealsService;
