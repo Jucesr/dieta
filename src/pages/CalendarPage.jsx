@@ -15,6 +15,7 @@ const CalendarPage = () => {
   const {
     loading,
     meals,
+    sides,
     mealIngredients,
     scheduledMeals,
     mealTimes,
@@ -97,14 +98,18 @@ const CalendarPage = () => {
     // Find the actual meal data
     const meal = meals.find(m => m.id === scheduledMeal.mealId);
     if (!meal) return;
-    
+    // Resolve sideIds (pueden ser códigos S01 o ids) a ids para que los chips se marquen
+    const resolvedSideIds = (meal.sideIds || []).map(sideRef => {
+      const side = sides.find(s => s.code === sideRef || s.id === sideRef);
+      return side?.id || sideRef;
+    }).filter(Boolean);
     setEditingScheduledMeal(scheduledMeal);
     setMealFormData({
       code: meal.code || '',
       name: meal.name || '',
       difficulty: meal.difficulty || 'Sencillas',
       labels: meal.labels || [],
-      sideIds: meal.sideIds || [],
+      sideIds: resolvedSideIds,
       preparation: meal.preparation || '',
       variations: meal.variations || '',
       preference: meal.preference || ''

@@ -52,7 +52,7 @@
  * @property {MealTime} mealTime - Which meal of the day
  * @property {string} mealId - Reference to meal
  * @property {string} mealName - Meal name (denormalized)
- * @property {string} selectedSideId - Selected side for this meal
+ * @property {string|null} selectedSideId - Selected side for this meal (null = sin guarnición)
  * @property {number} servings - Number of servings (portion multiplier)
  * @property {boolean} isDelivery - Whether this is delivery food
  * @property {Date} createdAt

@@ -29,6 +29,23 @@
   margin-bottom: 0.5rem;
 }
 
+.meal-form .form-label-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.meal-form .sides-picker-chips {
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.meal-form .form-hint {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 0.75rem;
+}
+
 .meal-form input[type="text"],
 .meal-form input[type="number"],
 .meal-form select,

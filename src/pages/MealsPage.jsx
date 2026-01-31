@@ -131,12 +131,17 @@ const MealsPage = () => {
 
   const handleOpenEdit = (meal) => {
     setEditingMeal(meal);
+    // Resolve sideIds (pueden ser códigos S01 o ids) a ids para que los chips se marquen
+    const resolvedSideIds = (meal.sideIds || []).map(sideRef => {
+      const side = sides.find(s => s.code === sideRef || s.id === sideRef);
+      return side?.id || sideRef;
+    }).filter(Boolean);
     setFormData({
       code: meal.code || '',
       name: meal.name || '',
       difficulty: meal.difficulty || 'Sencillas',
       labels: meal.labels || [],
-      sideIds: meal.sideIds || [],
+      sideIds: resolvedSideIds,
       preparation: meal.preparation || '',
       variations: meal.variations || '',
       preference: meal.preference || ''

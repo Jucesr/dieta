@@ -24,8 +24,8 @@ const MealCard = ({ scheduledMeal, onEdit, onQuickChange, onDelete }) => {
     await updateScheduledMeal(scheduledMeal.id, { servings: newServings });
   };
 
-  const handleSideChange = async (sideId) => {
-    await updateScheduledMeal(scheduledMeal.id, { selectedSideId: sideId });
+  const handleSideChange = async (sideIdOrNull) => {
+    await updateScheduledMeal(scheduledMeal.id, { selectedSideId: sideIdOrNull ?? null });
   };
 
   const handleOpenComplete = () => {
@@ -93,6 +93,12 @@ const MealCard = ({ scheduledMeal, onEdit, onQuickChange, onDelete }) => {
               <div className="meal-card-row">
                 <span className="meal-card-row-label">Guarnición:</span>
                 <div className="meal-card-sides">
+                  <button
+                    className={`chip ${!scheduledMeal.selectedSideId ? 'selected' : ''}`}
+                    onClick={() => handleSideChange(null)}
+                  >
+                    Sin guarnición
+                  </button>
                   {availableSides.map(side => (
                     <button
                       key={side.id}

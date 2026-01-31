@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { DIFFICULTY_OPTIONS, LABEL_OPTIONS, UNIT_OPTIONS } from '../../models/types';
+import Modal from '../ui/Modal';
 import './MealForm.css';
 
 const MealForm = ({
@@ -14,7 +15,35 @@ const MealForm = ({
   onSideToggle,
   onSubmit
 }) => {
-  const { sides, ingredients } = useApp();
+  const { sides, ingredients, createSide } = useApp();
+  const [showNewSideModal, setShowNewSideModal] = useState(false);
+  const [showPickSidesModal, setShowPickSidesModal] = useState(false);
+  const [newSideData, setNewSideData] = useState({ code: '', name: '' });
+  const [isCreatingSide, setIsCreatingSide] = useState(false);
+
+  const handleOpenNewSide = () => {
+    setNewSideData({ code: '', name: '' });
+    setShowNewSideModal(true);
+  };
+
+  const handleCreateSide = async (e) => {
+    if (e?.preventDefault) e.preventDefault();
+    if (!newSideData.name?.trim()) return;
+    setIsCreatingSide(true);
+    try {
+      const created = await createSide(
+        { code: newSideData.code?.trim() || '', name: newSideData.name.trim(), labels: [], preference: '' },
+        []
+      );
+      onSideToggle(created.id);
+      setShowNewSideModal(false);
+      setNewSideData({ code: '', name: '' });
+    } catch (err) {
+      console.error('Error creating side:', err);
+    } finally {
+      setIsCreatingSide(false);
+    }
+  };
 
   // Handle ingredient selection from dropdown
   const handleIngredientSelect = (index, ingredientId) => {
@@ -31,6 +60,7 @@ const MealForm = ({
   };
 
   return (
+    <>
     <form onSubmit={onSubmit} className="meal-form">
       <div className="form-row">
         <div className="form-group" style={{ flex: '0 0 100px' }}>
@@ -87,7 +117,25 @@ const MealForm = ({
       </div>
 
       <div className="form-group">
-        <label className="form-label">Guarniciones disponibles</label>
+        <div className="form-label-row">
+          <label className="form-label">Guarniciones disponibles</label>
+          <div className="form-label-actions">
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => setShowPickSidesModal(true)}
+            >
+              Ver y seleccionar
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={handleOpenNewSide}
+            >
+              + Nueva guarnición
+            </button>
+          </div>
+        </div>
         <div className="form-chips">
           {sides.map(side => (
             <button
@@ -189,6 +237,91 @@ const MealForm = ({
         />
       </div>
     </form>
+
+    {/* Modales fuera del form para evitar envío accidental */}
+    <Modal
+      isOpen={showNewSideModal}
+      onClose={() => setShowNewSideModal(false)}
+      title="Nueva guarnición"
+      footer={
+        <>
+          <button type="button" className="btn btn-secondary" onClick={() => setShowNewSideModal(false)}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={isCreatingSide || !newSideData.name?.trim()}
+            onClick={() => handleCreateSide()}
+          >
+            {isCreatingSide ? 'Creando...' : 'Crear y agregar'}
+          </button>
+        </>
+      }
+    >
+      <form
+        className="meal-form"
+        onSubmit={(e) => { e.preventDefault(); handleCreateSide(e); }}
+      >
+        <div className="form-row">
+          <div className="form-group" style={{ flex: '0 0 100px' }}>
+            <label className="form-label">Código</label>
+            <input
+              type="text"
+              value={newSideData.code}
+              onChange={(e) => setNewSideData(prev => ({ ...prev, code: e.target.value }))}
+              placeholder="S01"
+            />
+          </div>
+          <div className="form-group" style={{ flex: 1 }}>
+            <label className="form-label">Nombre *</label>
+            <input
+              type="text"
+              value={newSideData.name}
+              onChange={(e) => setNewSideData(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Arroz, Ensalada..."
+              required
+            />
+          </div>
+        </div>
+        <p className="form-hint">La guarnición se creará y se agregará a las disponibles para esta comida. Podrás editar ingredientes después en Guarniciones.</p>
+      </form>
+    </Modal>
+
+    <Modal
+      isOpen={showPickSidesModal}
+      onClose={() => setShowPickSidesModal(false)}
+      title="Seleccionar guarniciones disponibles"
+      footer={
+        <button type="button" className="btn btn-primary" onClick={() => setShowPickSidesModal(false)}>
+          Listo
+        </button>
+      }
+    >
+      <p className="form-hint" style={{ marginBottom: '1rem' }}>
+        Haz clic en una guarnición para agregarla o quitarla de las disponibles para esta comida.
+      </p>
+      <div className="form-chips sides-picker-chips">
+        {sides.length === 0 ? (
+          <p className="form-hint">No hay guarniciones. Crea una con &quot;+ Nueva guarnición&quot;.</p>
+        ) : (
+          sides
+            .slice()
+            .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+            .map(side => (
+              <button
+                key={side.id}
+                type="button"
+                className={`chip ${formData.sideIds.includes(side.id) ? 'selected' : ''}`}
+                onClick={() => onSideToggle(side.id)}
+              >
+                {side.code ? `${side.code} – ` : ''}{side.name}
+              </button>
+            ))
+        )}
+      </div>
+    </Modal>
+    </>
   );
 };
 
