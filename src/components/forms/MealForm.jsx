@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { DIFFICULTY_OPTIONS, LABEL_OPTIONS, UNIT_OPTIONS } from '../../models/types';
 import Modal from '../ui/Modal';
@@ -15,11 +15,17 @@ const MealForm = ({
   onSideToggle,
   onSubmit
 }) => {
-  const { sides, ingredients, createSide } = useApp();
+  const { sides, ingredients, createSide, createIngredient } = useApp();
   const [showNewSideModal, setShowNewSideModal] = useState(false);
   const [showPickSidesModal, setShowPickSidesModal] = useState(false);
   const [newSideData, setNewSideData] = useState({ code: '', name: '' });
   const [isCreatingSide, setIsCreatingSide] = useState(false);
+
+  // Ingredient search modal (same pattern as meals search)
+  const [showIngredientSearchModal, setShowIngredientSearchModal] = useState(false);
+  const [ingredientSearchRowIndex, setIngredientSearchRowIndex] = useState(null);
+  const [ingredientSearchQuery, setIngredientSearchQuery] = useState('');
+  const [isCreatingIngredient, setIsCreatingIngredient] = useState(false);
 
   const handleOpenNewSide = () => {
     setNewSideData({ code: '', name: '' });
@@ -45,17 +51,50 @@ const MealForm = ({
     }
   };
 
-  // Handle ingredient selection from dropdown
-  const handleIngredientSelect = (index, ingredientId) => {
-    if (ingredientId) {
-      const selectedIngredient = ingredients.find(ing => ing.id === ingredientId);
-      if (selectedIngredient) {
-        onIngredientChange(index, 'ingredientId', ingredientId);
-        onIngredientChange(index, 'ingredientName', selectedIngredient.name);
-      }
+  const filteredIngredients = useMemo(() => {
+    const sorted = ingredients.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    if (!ingredientSearchQuery.trim()) return sorted;
+    const q = ingredientSearchQuery.toLowerCase();
+    return sorted.filter(
+      ing => (ing.name || '').toLowerCase().includes(q) || (ing.code || '').toLowerCase().includes(q)
+    );
+  }, [ingredients, ingredientSearchQuery]);
+
+  const openIngredientSearch = (index) => {
+    setIngredientSearchRowIndex(index);
+    setIngredientSearchQuery('');
+    setShowIngredientSearchModal(true);
+  };
+
+  const closeIngredientSearch = () => {
+    setShowIngredientSearchModal(false);
+    setIngredientSearchRowIndex(null);
+    setIngredientSearchQuery('');
+  };
+
+  const handleIngredientSelectFromModal = (ingredient) => {
+    if (ingredientSearchRowIndex === null) return;
+    if (ingredient) {
+      onIngredientChange(ingredientSearchRowIndex, 'ingredientId', ingredient.id);
+      onIngredientChange(ingredientSearchRowIndex, 'ingredientName', ingredient.name);
     } else {
-      onIngredientChange(index, 'ingredientId', '');
-      onIngredientChange(index, 'ingredientName', '');
+      onIngredientChange(ingredientSearchRowIndex, 'ingredientId', '');
+      onIngredientChange(ingredientSearchRowIndex, 'ingredientName', '');
+    }
+    closeIngredientSearch();
+  };
+
+  const handleCreateNewIngredient = async () => {
+    const name = ingredientSearchQuery.trim();
+    if (!name || ingredientSearchRowIndex === null) return;
+    setIsCreatingIngredient(true);
+    try {
+      const created = await createIngredient({ name });
+      handleIngredientSelectFromModal(created);
+    } catch (err) {
+      // Toast already shown by createIngredient
+    } finally {
+      setIsCreatingIngredient(false);
     }
   };
 
@@ -164,21 +203,13 @@ const MealForm = ({
         <div className="ingredients-list">
           {formIngredients.map((ing, index) => (
             <div key={index} className="ingredient-row">
-              <select
-                value={ing.ingredientId || ''}
-                onChange={(e) => handleIngredientSelect(index, e.target.value)}
-                className="ingredient-select"
+              <button
+                type="button"
+                className="ingredient-search-trigger"
+                onClick={() => openIngredientSearch(index)}
               >
-                <option value="">Seleccionar ingrediente...</option>
-                {ingredients
-                  .slice()
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map(ingredient => (
-                    <option key={ingredient.id} value={ingredient.id}>
-                      {ingredient.name}
-                    </option>
-                  ))}
-              </select>
+                {ing.ingredientName || 'Buscar ingrediente...'}
+              </button>
               <input
                 type="number"
                 placeholder="Cant"
@@ -318,6 +349,61 @@ const MealForm = ({
                 {side.code ? `${side.code} – ` : ''}{side.name}
               </button>
             ))
+        )}
+      </div>
+    </Modal>
+
+    <Modal
+      isOpen={showIngredientSearchModal}
+      onClose={closeIngredientSearch}
+      title="Buscar ingrediente"
+      footer={
+        <button type="button" className="btn btn-primary" onClick={closeIngredientSearch}>
+          Cerrar
+        </button>
+      }
+    >
+      <input
+        type="text"
+        placeholder="Buscar por nombre..."
+        value={ingredientSearchQuery}
+        onChange={(e) => setIngredientSearchQuery(e.target.value)}
+        className="ingredient-search-input"
+        autoFocus
+      />
+      <div className="ingredient-search-list">
+        <button
+          type="button"
+          className="ingredient-search-item"
+          onClick={() => handleIngredientSelectFromModal(null)}
+        >
+          — Ninguno / Limpiar —
+        </button>
+        {ingredientSearchQuery.trim() && !ingredients.some(
+          ing => (ing.name || '').toLowerCase() === ingredientSearchQuery.trim().toLowerCase()
+        ) && (
+          <button
+            type="button"
+            className="ingredient-search-item ingredient-search-item-new"
+            onClick={handleCreateNewIngredient}
+            disabled={isCreatingIngredient}
+          >
+            {isCreatingIngredient ? 'Creando...' : `+ Agregar «${ingredientSearchQuery.trim()}» como nuevo ingrediente`}
+          </button>
+        )}
+        {filteredIngredients.length === 0 && !ingredientSearchQuery.trim() ? null : filteredIngredients.length === 0 ? (
+          <p className="form-hint">No hay ingredientes que coincidan.</p>
+        ) : (
+          filteredIngredients.map(ingredient => (
+            <button
+              key={ingredient.id}
+              type="button"
+              className="ingredient-search-item"
+              onClick={() => handleIngredientSelectFromModal(ingredient)}
+            >
+              {ingredient.code ? `${ingredient.code} – ` : ''}{ingredient.name}
+            </button>
+          ))
         )}
       </div>
     </Modal>
