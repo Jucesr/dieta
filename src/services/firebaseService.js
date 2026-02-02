@@ -1,10 +1,11 @@
-import { 
-  collection, 
-  doc, 
-  getDocs, 
+import {
+  collection,
+  doc,
+  getDocs,
   getDoc,
-  addDoc, 
-  updateDoc, 
+  addDoc,
+  setDoc,
+  updateDoc,
   deleteDoc,
   query,
   where,
@@ -12,9 +13,9 @@ import {
   writeBatch,
   Timestamp
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db, auth } from '../config/firebase';
 
-// Collection names
+// Collection names (subcollections under users/{userId}/)
 const COLLECTIONS = {
   MEALS: 'meals',
   INGREDIENTS: 'ingredients',
@@ -26,9 +27,23 @@ const COLLECTIONS = {
   SETTINGS: 'settings'
 };
 
-// Generic CRUD operations
+function getUserId() {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('Must be authenticated to access Firestore');
+  return uid;
+}
+
+function userCollection(collectionName) {
+  return collection(db, 'users', getUserId(), collectionName);
+}
+
+function userDoc(collectionName, id) {
+  return doc(db, 'users', getUserId(), collectionName, id);
+}
+
+// Generic CRUD operations (user-scoped)
 const createDocument = async (collectionName, data) => {
-  const docRef = await addDoc(collection(db, collectionName), {
+  const docRef = await addDoc(userCollection(collectionName), {
     ...data,
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now()
@@ -37,7 +52,7 @@ const createDocument = async (collectionName, data) => {
 };
 
 const updateDocument = async (collectionName, id, data) => {
-  const docRef = doc(db, collectionName, id);
+  const docRef = userDoc(collectionName, id);
   await updateDoc(docRef, {
     ...data,
     updatedAt: Timestamp.now()
@@ -46,11 +61,11 @@ const updateDocument = async (collectionName, id, data) => {
 };
 
 const deleteDocument = async (collectionName, id) => {
-  await deleteDoc(doc(db, collectionName, id));
+  await deleteDoc(userDoc(collectionName, id));
 };
 
 const getDocument = async (collectionName, id) => {
-  const docRef = doc(db, collectionName, id);
+  const docRef = userDoc(collectionName, id);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
     return { id: docSnap.id, ...docSnap.data() };
@@ -59,7 +74,7 @@ const getDocument = async (collectionName, id) => {
 };
 
 const getAllDocuments = async (collectionName, orderByField = 'name') => {
-  const q = query(collection(db, collectionName), orderBy(orderByField));
+  const q = query(userCollection(collectionName), orderBy(orderByField));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
@@ -75,14 +90,14 @@ export const mealsService = {
     const ingredients = await mealIngredientsService.getByMealId(id);
     const batch = writeBatch(db);
     ingredients.forEach(ing => {
-      batch.delete(doc(db, COLLECTIONS.MEAL_INGREDIENTS, ing.id));
+      batch.delete(userDoc(COLLECTIONS.MEAL_INGREDIENTS, ing.id));
     });
-    batch.delete(doc(db, COLLECTIONS.MEALS, id));
+    batch.delete(userDoc(COLLECTIONS.MEALS, id));
     await batch.commit();
   },
   getByLabels: async (labels) => {
     const q = query(
-      collection(db, COLLECTIONS.MEALS),
+      userCollection(COLLECTIONS.MEALS),
       where('labels', 'array-contains-any', labels)
     );
     const querySnapshot = await getDocs(q);
@@ -107,7 +122,7 @@ export const ingredientsService = {
   delete: (id) => deleteDocument(COLLECTIONS.INGREDIENTS, id),
   findByName: async (name) => {
     const q = query(
-      collection(db, COLLECTIONS.INGREDIENTS),
+      userCollection(COLLECTIONS.INGREDIENTS),
       where('name', '==', name)
     );
     const querySnapshot = await getDocs(q);
@@ -148,7 +163,7 @@ export const ingredientsService = {
       if (existing) {
         results[normalizedName] = existing;
       } else {
-        const docRef = doc(collection(db, COLLECTIONS.INGREDIENTS));
+        const docRef = doc(userCollection(COLLECTIONS.INGREDIENTS));
         const data = {
           name: normalizedName,
           createdAt: Timestamp.now(),
@@ -173,12 +188,12 @@ export const ingredientsService = {
 // Meal Ingredients
 export const mealIngredientsService = {
   getAll: async () => {
-    const querySnapshot = await getDocs(collection(db, COLLECTIONS.MEAL_INGREDIENTS));
+    const querySnapshot = await getDocs(userCollection(COLLECTIONS.MEAL_INGREDIENTS));
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
   getByMealId: async (mealId) => {
     const q = query(
-      collection(db, COLLECTIONS.MEAL_INGREDIENTS),
+      userCollection(COLLECTIONS.MEAL_INGREDIENTS),
       where('mealId', '==', mealId)
     );
     const querySnapshot = await getDocs(q);
@@ -193,12 +208,12 @@ export const mealIngredientsService = {
     // Delete existing
     const existing = await mealIngredientsService.getByMealId(mealId);
     existing.forEach(ing => {
-      batch.delete(doc(db, COLLECTIONS.MEAL_INGREDIENTS, ing.id));
+      batch.delete(userDoc(COLLECTIONS.MEAL_INGREDIENTS, ing.id));
     });
-    
+
     // Add new
     for (const ing of ingredients) {
-      const docRef = doc(collection(db, COLLECTIONS.MEAL_INGREDIENTS));
+      const docRef = doc(userCollection(COLLECTIONS.MEAL_INGREDIENTS));
       batch.set(docRef, {
         ...ing,
         mealId,
@@ -222,9 +237,9 @@ export const sidesService = {
     const ingredients = await sideIngredientsService.getBySideId(id);
     const batch = writeBatch(db);
     ingredients.forEach(ing => {
-      batch.delete(doc(db, COLLECTIONS.SIDE_INGREDIENTS, ing.id));
+      batch.delete(userDoc(COLLECTIONS.SIDE_INGREDIENTS, ing.id));
     });
-    batch.delete(doc(db, COLLECTIONS.SIDES, id));
+    batch.delete(userDoc(COLLECTIONS.SIDES, id));
     await batch.commit();
   }
 };
@@ -232,12 +247,12 @@ export const sidesService = {
 // Side Ingredients
 export const sideIngredientsService = {
   getAll: async () => {
-    const querySnapshot = await getDocs(collection(db, COLLECTIONS.SIDE_INGREDIENTS));
+    const querySnapshot = await getDocs(userCollection(COLLECTIONS.SIDE_INGREDIENTS));
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
   getBySideId: async (sideId) => {
     const q = query(
-      collection(db, COLLECTIONS.SIDE_INGREDIENTS),
+      userCollection(COLLECTIONS.SIDE_INGREDIENTS),
       where('sideId', '==', sideId)
     );
     const querySnapshot = await getDocs(q);
@@ -252,12 +267,12 @@ export const sideIngredientsService = {
     // Delete existing
     const existing = await sideIngredientsService.getBySideId(sideId);
     existing.forEach(ing => {
-      batch.delete(doc(db, COLLECTIONS.SIDE_INGREDIENTS, ing.id));
+      batch.delete(userDoc(COLLECTIONS.SIDE_INGREDIENTS, ing.id));
     });
-    
+
     // Add new
     for (const ing of ingredients) {
-      const docRef = doc(collection(db, COLLECTIONS.SIDE_INGREDIENTS));
+      const docRef = doc(userCollection(COLLECTIONS.SIDE_INGREDIENTS));
       batch.set(docRef, {
         ...ing,
         sideId,
@@ -274,7 +289,7 @@ export const sideIngredientsService = {
 export const scheduledMealsService = {
   getByDateRange: async (startDate, endDate) => {
     const q = query(
-      collection(db, COLLECTIONS.SCHEDULED_MEALS),
+      userCollection(COLLECTIONS.SCHEDULED_MEALS),
       where('date', '>=', startDate),
       where('date', '<=', endDate),
       orderBy('date')
@@ -284,7 +299,7 @@ export const scheduledMealsService = {
   },
   getByDate: async (date) => {
     const q = query(
-      collection(db, COLLECTIONS.SCHEDULED_MEALS),
+      userCollection(COLLECTIONS.SCHEDULED_MEALS),
       where('date', '==', date)
     );
     const querySnapshot = await getDocs(q);
@@ -297,7 +312,7 @@ export const scheduledMealsService = {
     const meals = await scheduledMealsService.getByDate(date);
     const batch = writeBatch(db);
     meals.forEach(meal => {
-      batch.delete(doc(db, COLLECTIONS.SCHEDULED_MEALS, meal.id));
+      batch.delete(userDoc(COLLECTIONS.SCHEDULED_MEALS, meal.id));
     });
     await batch.commit();
   },
@@ -306,7 +321,7 @@ export const scheduledMealsService = {
     const createdMeals = [];
     
     for (const meal of meals) {
-      const docRef = doc(collection(db, COLLECTIONS.SCHEDULED_MEALS));
+      const docRef = doc(userCollection(COLLECTIONS.SCHEDULED_MEALS));
       const mealData = {
         ...meal,
         createdAt: Timestamp.now(),
@@ -324,7 +339,7 @@ export const scheduledMealsService = {
 // Delivery Rules
 export const deliveryRulesService = {
   getAll: async () => {
-    const querySnapshot = await getDocs(collection(db, COLLECTIONS.DELIVERY_RULES));
+    const querySnapshot = await getDocs(userCollection(COLLECTIONS.DELIVERY_RULES));
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
   create: (data) => createDocument(COLLECTIONS.DELIVERY_RULES, data),
@@ -332,7 +347,7 @@ export const deliveryRulesService = {
   delete: (id) => deleteDocument(COLLECTIONS.DELIVERY_RULES, id),
   getByDayAndMealTime: async (dayOfWeek, mealTime) => {
     const q = query(
-      collection(db, COLLECTIONS.DELIVERY_RULES),
+      userCollection(COLLECTIONS.DELIVERY_RULES),
       where('dayOfWeek', '==', dayOfWeek),
       where('mealTime', '==', mealTime),
       where('enabled', '==', true)
@@ -345,7 +360,7 @@ export const deliveryRulesService = {
 // Settings
 export const settingsService = {
   get: async (key) => {
-    const docRef = doc(db, COLLECTIONS.SETTINGS, key);
+    const docRef = userDoc(COLLECTIONS.SETTINGS, key);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       return docSnap.data().value;
@@ -353,10 +368,10 @@ export const settingsService = {
     return null;
   },
   set: async (key, value) => {
-    const docRef = doc(db, COLLECTIONS.SETTINGS, key);
+    const docRef = userDoc(COLLECTIONS.SETTINGS, key);
     await updateDoc(docRef, { value, updatedAt: Timestamp.now() }).catch(async () => {
-      // Document doesn't exist, create it
-      await addDoc(collection(db, COLLECTIONS.SETTINGS), {
+      // Document doesn't exist, create it with key as document ID
+      await setDoc(docRef, {
         key,
         value,
         createdAt: Timestamp.now(),

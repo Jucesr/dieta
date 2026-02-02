@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useAuth } from './AuthContext';
 import {
   mealsService as firebaseMealsService,
   ingredientsService as firebaseIngredientsService,
@@ -45,6 +46,8 @@ export const useApp = () => {
 };
 
 export const AppProvider = ({ children }) => {
+  const { user } = useAuth();
+
   // Data state
   const [meals, setMeals] = useState([]);
   const [ingredients, setIngredients] = useState([]);
@@ -53,7 +56,7 @@ export const AppProvider = ({ children }) => {
   const [sideIngredients, setSideIngredients] = useState({});
   const [scheduledMeals, setScheduledMeals] = useState([]);
   const [deliveryRules, setDeliveryRules] = useState([]);
-  
+
   // UI state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -508,10 +511,21 @@ export const AppProvider = ({ children }) => {
     setMealTimes(prev => prev.filter(t => t !== mealTime));
   }, []);
 
-  // Initial load
+  // Load data only when user is authenticated (Firestore paths are user-scoped)
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (user) {
+      loadData();
+    } else {
+      setLoading(false);
+      setMeals([]);
+      setIngredients([]);
+      setMealIngredients({});
+      setSides([]);
+      setSideIngredients({});
+      setDeliveryRules([]);
+      setError(null);
+    }
+  }, [user, loadData]);
 
   const value = {
     // Data

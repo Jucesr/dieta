@@ -8,3 +8,7 @@ dist
 .env.development
 .env.test
 .env.production
+
+# Firebase service account key (never commit)
+serviceAccountKey.json
+**/serviceAccountKey.json
