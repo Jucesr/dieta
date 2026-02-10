@@ -200,14 +200,10 @@ const ShoppingListPage = () => {
     });
   }, [weekStartStr]);
 
-  if (loading) {
-    return <Loading text="Cargando lista de compras..." />;
-  }
-
   const uncheckedItems = shoppingList.filter(item => !checkedItems.has(item.name));
   const checkedItemsList = shoppingList.filter(item => checkedItems.has(item.name));
 
-  // Map ingredient name -> categoryId for grouping
+  // Map ingredient name -> categoryId for grouping (must run before any early return)
   const nameToCategoryId = useMemo(() => {
     const map = new Map();
     ingredients.forEach(ing => {
@@ -224,6 +220,10 @@ const ShoppingListPage = () => {
     () => groupItemsByCategory(checkedItemsList, nameToCategoryId),
     [checkedItemsList, nameToCategoryId]
   );
+
+  if (loading) {
+    return <Loading text="Cargando lista de compras..." />;
+  }
 
   return (
     <div className="shopping-page">
