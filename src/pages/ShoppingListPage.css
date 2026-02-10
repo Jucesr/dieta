@@ -145,6 +145,24 @@
   padding-left: 0.25rem;
 }
 
+.shopping-category-group {
+  margin-bottom: 1.25rem;
+}
+
+.shopping-category-group:last-child {
+  margin-bottom: 0;
+}
+
+.shopping-category-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.5rem;
+  padding-left: 0.25rem;
+}
+
 .shopping-section.checked .shopping-section-title {
   color: var(--text-muted);
 }

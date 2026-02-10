@@ -41,9 +41,21 @@
   background: var(--bg-card-hover);
 }
 
+.ingredient-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
 .ingredient-name {
   font-weight: 500;
   color: var(--text-primary);
+}
+
+.ingredient-category {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .ingredient-actions {

@@ -150,7 +150,8 @@ input::placeholder, textarea::placeholder {
   flex: 1;
   padding: 1rem;
   padding-top: 4rem;
-  padding-bottom: 5rem;
+  /* Extra bottom padding when nav is at bottom so last content is not hidden behind it */
+  padding-bottom: max(6rem, calc(72px + env(safe-area-inset-bottom, 0px)));
   animation: fadeIn 0.3s ease;
 }
 
@@ -628,6 +629,7 @@ input::placeholder, textarea::placeholder {
 @media (min-width: 640px) {
   .page {
     padding: 1.5rem;
+    padding-bottom: max(6rem, calc(72px + env(safe-area-inset-bottom, 0px)));
   }
   
   .section-title {

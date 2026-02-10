@@ -3,11 +3,14 @@ import { useApp } from '../context/AppContext';
 import Modal from '../components/ui/Modal';
 import Loading from '../components/ui/Loading';
 import EmptyState from '../components/ui/EmptyState';
+import { INGREDIENT_CATEGORIES, getCategoryLabel } from '../config/ingredientCategories';
 import './IngredientsPage.css';
 
 const IngredientsPage = () => {
   const { 
     ingredients, 
+    meals,
+    sides,
     mealIngredients,
     sideIngredients,
     loading, 
@@ -43,6 +46,7 @@ const IngredientsPage = () => {
   const [editingIngredient, setEditingIngredient] = useState(null);
   const [search, setSearch] = useState('');
   const [formName, setFormName] = useState('');
+  const [formCategoryId, setFormCategoryId] = useState('');
 
   const filteredIngredients = useMemo(() => {
     let filtered = ingredients;
@@ -59,6 +63,7 @@ const IngredientsPage = () => {
 
   const handleOpenCreate = () => {
     setFormName('');
+    setFormCategoryId('');
     setEditingIngredient(null);
     setShowForm(true);
   };
@@ -66,6 +71,7 @@ const IngredientsPage = () => {
   const handleOpenEdit = (ingredient) => {
     setEditingIngredient(ingredient);
     setFormName(ingredient.name || '');
+    setFormCategoryId(ingredient.categoryId || '');
     setShowForm(true);
   };
 
@@ -73,6 +79,7 @@ const IngredientsPage = () => {
     setShowForm(false);
     setEditingIngredient(null);
     setFormName('');
+    setFormCategoryId('');
   };
 
   const handleSubmit = async (e) => {
@@ -80,10 +87,13 @@ const IngredientsPage = () => {
     
     if (!formName.trim()) return;
     
+    const payload = { name: formName.trim() };
+    if (formCategoryId) payload.categoryId = formCategoryId;
+    else if (editingIngredient) payload.categoryId = null; // clear category when editing
     if (editingIngredient) {
-      await updateIngredient(editingIngredient.id, { name: formName.trim() });
+      await updateIngredient(editingIngredient.id, payload);
     } else {
-      await createIngredient({ name: formName.trim() });
+      await createIngredient(payload);
     }
     
     handleClose();
@@ -95,14 +105,22 @@ const IngredientsPage = () => {
     if (usage.isUsed) {
       const mealCount = usage.usedInMeals.length;
       const sideCount = usage.usedInSides.length;
+      const mealCodes = usage.usedInMeals
+        .map(mealId => meals.find(m => m.id === mealId)?.code)
+        .filter(Boolean)
+        .join(', ');
+      const sideCodes = usage.usedInSides
+        .map(sideId => sides.find(s => s.id === sideId)?.code)
+        .filter(Boolean)
+        .join(', ');
       let message = `No se puede eliminar "${ingredient.name}" porque está siendo usado en `;
       
       if (mealCount > 0 && sideCount > 0) {
-        message += `${mealCount} comida${mealCount > 1 ? 's' : ''} y ${sideCount} guarnición${sideCount > 1 ? 'es' : ''}`;
+        message += `${mealCount} comida${mealCount > 1 ? 's' : ''} (${mealCodes}) y ${sideCount} guarnición${sideCount > 1 ? 'es' : ''} (${sideCodes})`;
       } else if (mealCount > 0) {
-        message += `${mealCount} comida${mealCount > 1 ? 's' : ''}`;
+        message += `${mealCount} comida${mealCount > 1 ? 's' : ''} (${mealCodes})`;
       } else {
-        message += `${sideCount} guarnición${sideCount > 1 ? 'es' : ''}`;
+        message += `${sideCount} guarnición${sideCount > 1 ? 'es' : ''} (${sideCodes})`;
       }
       
       showToast(message, 'error');
@@ -154,7 +172,12 @@ const IngredientsPage = () => {
         <div className="ingredients-grid">
           {filteredIngredients.map(ingredient => (
             <div key={ingredient.id} className="ingredient-card">
-              <span className="ingredient-name">{ingredient.name}</span>
+              <div className="ingredient-card-main">
+                <span className="ingredient-name">{ingredient.name}</span>
+                {ingredient.categoryId && (
+                  <span className="ingredient-category">{getCategoryLabel(ingredient.categoryId)}</span>
+                )}
+              </div>
               <div className="ingredient-actions">
                 <button 
                   className="btn btn-sm btn-secondary"
@@ -200,6 +223,18 @@ const IngredientsPage = () => {
               autoFocus
               required
             />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Categoría</label>
+            <select
+              value={formCategoryId}
+              onChange={(e) => setFormCategoryId(e.target.value)}
+            >
+              <option value="">Sin categoría</option>
+              {INGREDIENT_CATEGORIES.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.label}</option>
+              ))}
+            </select>
           </div>
         </form>
       </Modal>

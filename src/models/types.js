@@ -21,6 +21,7 @@
  * @typedef {Object} Ingredient
  * @property {string} id - Unique identifier
  * @property {string} name - Ingredient name
+ * @property {string} [categoryId] - Ingredient category id (see INGREDIENT_CATEGORIES)
  * @property {Date} createdAt
  * 
  * @typedef {Object} MealIngredient

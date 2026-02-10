@@ -1,16 +1,68 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { format, startOfWeek, endOfWeek, addDays, addWeeks, subWeeks, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import { aggregateIngredients, getMealsUsingIngredient } from '../services/shoppingListService';
+import { settingsService } from '../services/firebaseService';
+import { INGREDIENT_CATEGORIES, getCategoryLabel } from '../config/ingredientCategories';
 import Loading from '../components/ui/Loading';
 import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
 import './ShoppingListPage.css';
 
+const SHOPPING_CHECKED_KEY = 'shoppingChecked';
+const SHOPPING_CHECKED_STORAGE_KEY = 'dieta_shoppingChecked';
+
+async function loadShoppingChecked() {
+  try {
+    const value = await settingsService.get(SHOPPING_CHECKED_KEY);
+    return value && typeof value === 'object' ? value : {};
+  } catch {
+    try {
+      const raw = localStorage.getItem(SHOPPING_CHECKED_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+}
+
+async function saveShoppingChecked(data) {
+  const payload = { ...data };
+  try {
+    await settingsService.set(SHOPPING_CHECKED_KEY, payload);
+  } catch {
+    try {
+      localStorage.setItem(SHOPPING_CHECKED_STORAGE_KEY, JSON.stringify(payload));
+    } catch (_) {}
+  }
+}
+
+const NO_CATEGORY_KEY = '__sin_categoria__';
+
+/** Groups shopping items by category using ingredient name -> categoryId lookup. Returns array of { categoryId, label, items }. */
+function groupItemsByCategory(items, nameToCategoryId) {
+  const groups = new Map();
+  for (const item of items) {
+    const categoryId = nameToCategoryId.get(item.name?.toLowerCase?.() ?? '') ?? null;
+    const key = categoryId ?? NO_CATEGORY_KEY;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+  const order = [...INGREDIENT_CATEGORIES.map(c => c.id), NO_CATEGORY_KEY];
+  return order
+    .filter(k => groups.has(k))
+    .map(key => ({
+      categoryId: key === NO_CATEGORY_KEY ? null : key,
+      label: key === NO_CATEGORY_KEY ? 'Sin categoría' : getCategoryLabel(key),
+      items: groups.get(key)
+    }));
+}
+
 const ShoppingListPage = () => {
   const { 
     loading, 
+    ingredients,
     scheduledMeals, 
     mealIngredients, 
     sideIngredients,
@@ -39,6 +91,22 @@ const ShoppingListPage = () => {
   useEffect(() => {
     loadScheduledMeals(weekStartStr, weekEndStr);
   }, [weekStartStr, weekEndStr, loadScheduledMeals]);
+
+  // Load persisted checked state on mount
+  useEffect(() => {
+    let cancelled = false;
+    loadShoppingChecked()
+      .then((saved) => {
+        if (cancelled) return;
+        const byWeek = {};
+        for (const [week, arr] of Object.entries(saved)) {
+          byWeek[week] = new Set(Array.isArray(arr) ? arr : []);
+        }
+        setCheckedItemsByWeek(byWeek);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Week navigation handlers
   const handlePrevWeek = () => {
@@ -113,19 +181,24 @@ const ShoppingListPage = () => {
   // Get checked items for the current week
   const checkedItems = checkedItemsByWeek[weekStartStr] || new Set();
 
-  const handleToggleItem = (itemName) => {
-    const currentWeekChecked = checkedItemsByWeek[weekStartStr] || new Set();
-    const newChecked = new Set(currentWeekChecked);
-    if (newChecked.has(itemName)) {
-      newChecked.delete(itemName);
-    } else {
-      newChecked.add(itemName);
-    }
-    setCheckedItemsByWeek(prev => ({
-      ...prev,
-      [weekStartStr]: newChecked
-    }));
-  };
+  const handleToggleItem = useCallback((itemName) => {
+    setCheckedItemsByWeek(prev => {
+      const currentWeekChecked = prev[weekStartStr] || new Set();
+      const newChecked = new Set(currentWeekChecked);
+      if (newChecked.has(itemName)) {
+        newChecked.delete(itemName);
+      } else {
+        newChecked.add(itemName);
+      }
+      const next = { ...prev, [weekStartStr]: newChecked };
+      const toSave = {};
+      for (const [week, setVal] of Object.entries(next)) {
+        toSave[week] = Array.from(setVal);
+      }
+      saveShoppingChecked(toSave);
+      return next;
+    });
+  }, [weekStartStr]);
 
   if (loading) {
     return <Loading text="Cargando lista de compras..." />;
@@ -133,6 +206,24 @@ const ShoppingListPage = () => {
 
   const uncheckedItems = shoppingList.filter(item => !checkedItems.has(item.name));
   const checkedItemsList = shoppingList.filter(item => checkedItems.has(item.name));
+
+  // Map ingredient name -> categoryId for grouping
+  const nameToCategoryId = useMemo(() => {
+    const map = new Map();
+    ingredients.forEach(ing => {
+      if (ing.name && ing.categoryId) map.set(ing.name.toLowerCase(), ing.categoryId);
+    });
+    return map;
+  }, [ingredients]);
+
+  const groupedUnchecked = useMemo(
+    () => groupItemsByCategory(uncheckedItems, nameToCategoryId),
+    [uncheckedItems, nameToCategoryId]
+  );
+  const groupedChecked = useMemo(
+    () => groupItemsByCategory(checkedItemsList, nameToCategoryId),
+    [checkedItemsList, nameToCategoryId]
+  );
 
   return (
     <div className="shopping-page">
@@ -201,32 +292,37 @@ const ShoppingListPage = () => {
           {uncheckedItems.length > 0 && (
             <div className="shopping-section">
               <h3 className="shopping-section-title">Por comprar</h3>
-              {uncheckedItems.map(item => (
-                <div 
-                  key={`${item.name}-${item.unit}`}
-                  className="shopping-item"
-                >
-                  <button 
-                    className="shopping-checkbox"
-                    onClick={() => handleToggleItem(item.name)}
-                  >
-                    <span className="checkbox-inner"></span>
-                  </button>
-                  <div 
-                    className="shopping-item-info"
-                    onClick={() => setSelectedIngredient(item)}
-                  >
-                    <span className="shopping-item-name">{item.name}</span>
-                    <span className="shopping-item-quantity">
-                      {item.quantity > 0 ? `${item.quantity} ${item.unit}` : item.unit || '-'}
-                    </span>
-                  </div>
-                  <button 
-                    className="shopping-item-meals"
-                    onClick={() => setSelectedIngredient(item)}
-                  >
-                    {item.meals.length} 🍽️
-                  </button>
+              {groupedUnchecked.map(group => (
+                <div key={group.categoryId ?? NO_CATEGORY_KEY} className="shopping-category-group">
+                  <h4 className="shopping-category-title">{group.label}</h4>
+                  {group.items.map(item => (
+                    <div 
+                      key={`${item.name}-${item.unit}`}
+                      className="shopping-item"
+                    >
+                      <button 
+                        className="shopping-checkbox"
+                        onClick={() => handleToggleItem(item.name)}
+                      >
+                        <span className="checkbox-inner"></span>
+                      </button>
+                      <div 
+                        className="shopping-item-info"
+                        onClick={() => setSelectedIngredient(item)}
+                      >
+                        <span className="shopping-item-name">{item.name}</span>
+                        <span className="shopping-item-quantity">
+                          {item.quantity > 0 ? `${item.quantity} ${item.unit}` : item.unit || '-'}
+                        </span>
+                      </div>
+                      <button 
+                        className="shopping-item-meals"
+                        onClick={() => setSelectedIngredient(item)}
+                      >
+                        {item.meals.length} 🍽️
+                      </button>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
@@ -237,23 +333,28 @@ const ShoppingListPage = () => {
               <h3 className="shopping-section-title">
                 Completados ({checkedItemsList.length})
               </h3>
-              {checkedItemsList.map(item => (
-                <div 
-                  key={`${item.name}-${item.unit}`}
-                  className="shopping-item checked"
-                >
-                  <button 
-                    className="shopping-checkbox checked"
-                    onClick={() => handleToggleItem(item.name)}
-                  >
-                    <span className="checkbox-inner">✓</span>
-                  </button>
-                  <div className="shopping-item-info">
-                    <span className="shopping-item-name">{item.name}</span>
-                    <span className="shopping-item-quantity">
-                      {item.quantity > 0 ? `${item.quantity} ${item.unit}` : item.unit || '-'}
-                    </span>
-                  </div>
+              {groupedChecked.map(group => (
+                <div key={group.categoryId ?? NO_CATEGORY_KEY} className="shopping-category-group">
+                  <h4 className="shopping-category-title">{group.label}</h4>
+                  {group.items.map(item => (
+                    <div 
+                      key={`${item.name}-${item.unit}`}
+                      className="shopping-item checked"
+                    >
+                      <button 
+                        className="shopping-checkbox checked"
+                        onClick={() => handleToggleItem(item.name)}
+                      >
+                        <span className="checkbox-inner">✓</span>
+                      </button>
+                      <div className="shopping-item-info">
+                        <span className="shopping-item-name">{item.name}</span>
+                        <span className="shopping-item-quantity">
+                          {item.quantity > 0 ? `${item.quantity} ${item.unit}` : item.unit || '-'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
