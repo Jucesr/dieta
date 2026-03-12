@@ -126,7 +126,29 @@ const MealsPage = () => {
 
   const handleOpenCreate = () => {
     resetForm();
+    // Generate next meal code
+    const nextCode = generateNextMealCode();
+    setFormData(prev => ({ ...prev, code: nextCode }));
     setShowForm(true);
+  };
+
+  const generateNextMealCode = () => {
+    // Extract all numeric codes from existing meals
+    const numericCodes = meals
+      .map(meal => {
+        if (!meal.code) return 0;
+        // Extract numeric part from codes like "C01", "C001", etc.
+        const match = meal.code.match(/\d+/);
+        return match ? parseInt(match[0], 10) : 0;
+      })
+      .filter(num => num > 0);
+    
+    // Find the maximum code number
+    const maxCode = numericCodes.length > 0 ? Math.max(...numericCodes) : 0;
+    
+    // Generate next code with "C" prefix and zero-padded to 2 digits
+    const nextNumber = maxCode + 1;
+    return `C${nextNumber.toString().padStart(2, '0')}`;
   };
 
   const handleOpenEdit = (meal) => {
@@ -448,6 +470,7 @@ const MealsPage = () => {
           onLabelToggle={handleLabelToggle}
           onSideToggle={handleSideToggle}
           onSubmit={handleSubmit}
+          isEditing={!!editingMeal}
           datalistId="ingredients-datalist"
         />
       </Modal>

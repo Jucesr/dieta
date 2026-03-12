@@ -67,7 +67,29 @@ const SidesPage = () => {
 
   const handleOpenCreate = () => {
     resetForm();
+    // Generate next side code
+    const nextCode = generateNextSideCode();
+    setFormData(prev => ({ ...prev, code: nextCode }));
     setShowForm(true);
+  };
+
+  const generateNextSideCode = () => {
+    // Extract all numeric codes from existing sides
+    const numericCodes = sides
+      .map(side => {
+        if (!side.code) return 0;
+        // Extract numeric part from codes like "S01", "S001", etc.
+        const match = side.code.match(/\d+/);
+        return match ? parseInt(match[0], 10) : 0;
+      })
+      .filter(num => num > 0);
+    
+    // Find the maximum code number
+    const maxCode = numericCodes.length > 0 ? Math.max(...numericCodes) : 0;
+    
+    // Generate next code with "S" prefix and zero-padded to 2 digits
+    const nextNumber = maxCode + 1;
+    return `S${nextNumber.toString().padStart(2, '0')}`;
   };
 
   const handleOpenEdit = (side) => {
@@ -239,6 +261,9 @@ const SidesPage = () => {
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                 placeholder="S01"
+                readOnly={!editingSide}
+                title={!editingSide ? 'Código generado automáticamente' : 'Editar código'}
+                style={!editingSide ? { backgroundColor: '#e9ecef', cursor: 'not-allowed', color: '#495057' } : {}}
               />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
