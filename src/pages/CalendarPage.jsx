@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import WeekView from '../components/calendar/WeekView';
 import DayMeals from '../components/calendar/DayMeals';
 import MealPicker from '../components/calendar/MealPicker';
+import RandomMealSuggestion from '../components/calendar/RandomMealSuggestion';
 import MealForm from '../components/forms/MealForm';
 import Loading from '../components/ui/Loading';
 import Modal from '../components/ui/Modal';
@@ -36,6 +37,10 @@ const CalendarPage = () => {
   const [showMealEditModal, setShowMealEditModal] = useState(false);
   const [editingScheduledMeal, setEditingScheduledMeal] = useState(null);
   const [addingMealTime, setAddingMealTime] = useState(null);
+  const [showRandomSuggestion, setShowRandomSuggestion] = useState(false);
+  const [randomMealTime, setRandomMealTime] = useState(null);
+  const [suggestedMeal, setSuggestedMeal] = useState(null);
+  const [excludedSuggestionIds, setExcludedSuggestionIds] = useState([]);
   
   // Full meal edit form state
   const [mealFormData, setMealFormData] = useState({
@@ -124,9 +129,7 @@ const CalendarPage = () => {
   };
 
   const handleDeleteMeal = async (meal) => {
-    if (confirm('¿Eliminar esta comida?')) {
-      await deleteScheduledMeal(meal.id);
-    }
+    await deleteScheduledMeal(meal.id);
   };
 
   const handleMealSelect = async (newMeal) => {
@@ -220,39 +223,64 @@ const CalendarPage = () => {
     setShowMealPicker(true);
   };
 
-  const handleRandomMeal = async (mealTime) => {
-    setIsGenerating(true);
-    try {
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const picked = pickMeal({
-        meals,
-        mealTime,
-        date: dateStr,
-        recentMeals: scheduledMeals,
-        deliveryRules,
-        config: {
-          avoidRepetition: true,
-          repetitionWindow: 7,
-          respectPreferences: true,
-          balanceDifficulty: true
-        }
-      });
-      
-      if (picked) {
-        await createScheduledMeal({
-          date: dateStr,
-          mealTime,
-          mealId: picked.id,
-          mealName: picked.name,
-          selectedSideId: picked.sideIds?.[0] || null,
-          servings: 1,
-          isDelivery: picked.isDelivery || false,
-          completed: false
-        });
+  const pickRandomSuggestion = (mealTime, excludeIds = []) => {
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const availableMeals = meals.filter(m => !excludeIds.includes(m.id));
+    return pickMeal({
+      meals: availableMeals.length > 0 ? availableMeals : meals,
+      mealTime,
+      date: dateStr,
+      recentMeals: scheduledMeals,
+      deliveryRules,
+      config: {
+        avoidRepetition: true,
+        repetitionWindow: 7,
+        respectPreferences: true,
+        balanceDifficulty: true
       }
-    } finally {
-      setIsGenerating(false);
+    });
+  };
+
+  const handleRandomMeal = (mealTime) => {
+    const picked = pickRandomSuggestion(mealTime);
+    setRandomMealTime(mealTime);
+    setSuggestedMeal(picked);
+    setExcludedSuggestionIds(picked ? [picked.id] : []);
+    setShowRandomSuggestion(true);
+  };
+
+  const handleAnotherSuggestion = () => {
+    const picked = pickRandomSuggestion(randomMealTime, excludedSuggestionIds);
+    if (picked) {
+      setSuggestedMeal(picked);
+      setExcludedSuggestionIds(prev =>
+        prev.includes(picked.id) ? [picked.id] : [...prev, picked.id]
+      );
     }
+  };
+
+  const handleCloseRandomSuggestion = () => {
+    setShowRandomSuggestion(false);
+    setRandomMealTime(null);
+    setSuggestedMeal(null);
+    setExcludedSuggestionIds([]);
+  };
+
+  const handleAcceptSuggestion = async () => {
+    if (!suggestedMeal || !randomMealTime) return;
+
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    await createScheduledMeal({
+      date: dateStr,
+      mealTime: randomMealTime,
+      mealId: suggestedMeal.id,
+      mealName: suggestedMeal.name,
+      selectedSideId: suggestedMeal.sideIds?.[0] || null,
+      servings: 1,
+      isDelivery: suggestedMeal.isDelivery || false,
+      completed: false
+    });
+    handleCloseRandomSuggestion();
   };
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
@@ -328,6 +356,15 @@ const CalendarPage = () => {
         onSelect={handleMealSelect}
         mealTime={editingScheduledMeal?.mealTime || addingMealTime}
         currentMealId={editingScheduledMeal?.mealId}
+      />
+
+      <RandomMealSuggestion
+        isOpen={showRandomSuggestion}
+        onClose={handleCloseRandomSuggestion}
+        onAccept={handleAcceptSuggestion}
+        onAnother={handleAnotherSuggestion}
+        meal={suggestedMeal}
+        mealTime={randomMealTime}
       />
 
       <Modal

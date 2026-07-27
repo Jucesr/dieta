@@ -122,9 +122,11 @@ const MealCard = ({ scheduledMeal, onEdit, onQuickChange, onDelete }) => {
                   🔄 Cambiar
                 </button>
               )}
-              <button className="btn btn-outline btn-sm" onClick={onDelete}>
-                🗑️ Eliminar
-              </button>
+              {!scheduledMeal.completed && (
+                <button className="btn btn-outline btn-sm" onClick={onDelete}>
+                  🗑️ Eliminar
+                </button>
+              )}
 
               {scheduledMeal.completed ? (
                 <button className="btn btn-secondary btn-sm" onClick={handleUncomplete}>

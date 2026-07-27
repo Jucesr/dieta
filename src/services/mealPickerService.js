@@ -24,32 +24,30 @@ const DEFAULT_CONFIG = {
 };
 
 /**
- * Maps meal time to label keywords used in the meals
+ * Maps meal time slots to meal labels (Desayuno, Comida, Cena, Snack)
  */
 const MEAL_TIME_TO_LABELS = {
   breakfast: ['Desayuno'],
   lunch: ['Comida'],
-  dinner: ['Cena', 'Comida'],
-  snack: ['Snack', 'Desayuno']
+  dinner: ['Cena'],
+  snack: ['Snack']
 };
 
 /**
  * Filters meals that are appropriate for a given meal time
  * @param {Array} meals - All available meals
  * @param {string} mealTime - The meal time (breakfast, lunch, dinner, snack)
- * @returns {Array} Filtered meals
+ * @returns {Array} Filtered meals that have a matching label
  */
 export const filterMealsByTime = (meals, mealTime) => {
   const validLabels = MEAL_TIME_TO_LABELS[mealTime] || [];
-  
-  return meals.filter(meal => {
-    if (!meal.labels || meal.labels.length === 0) return true;
-    return meal.labels.some(label => 
-      validLabels.some(valid => 
-        label.toLowerCase().includes(valid.toLowerCase())
-      )
-    );
-  });
+  if (validLabels.length === 0) return meals;
+
+  return meals.filter(meal =>
+    meal.labels?.some(label =>
+      validLabels.some(valid => label.toLowerCase() === valid.toLowerCase())
+    )
+  );
 };
 
 /**

@@ -4,7 +4,7 @@ import Modal from '../components/ui/Modal';
 import MealForm from '../components/forms/MealForm';
 import Loading from '../components/ui/Loading';
 import EmptyState from '../components/ui/EmptyState';
-import { DIFFICULTY_OPTIONS } from '../models/types';
+import { DIFFICULTY_OPTIONS, LABEL_OPTIONS } from '../models/types';
 import { ingredientsService } from '../services/firebaseService';
 import './MealsPage.css';
 
@@ -70,6 +70,7 @@ const MealsPage = () => {
   const [editingMeal, setEditingMeal] = useState(null);
   const [search, setSearch] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState('');
+  const [filterLabel, setFilterLabel] = useState('');
   
   // Import state
   const [showImportModal, setShowImportModal] = useState(false);
@@ -105,9 +106,13 @@ const MealsPage = () => {
     if (filterDifficulty) {
       filtered = filtered.filter(m => m.difficulty === filterDifficulty);
     }
+
+    if (filterLabel) {
+      filtered = filtered.filter(m => m.labels?.includes(filterLabel));
+    }
     
     return filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  }, [meals, search, filterDifficulty]);
+  }, [meals, search, filterDifficulty, filterLabel]);
 
   const resetForm = () => {
     setFormData({
@@ -366,7 +371,7 @@ const MealsPage = () => {
         <h1 className="section-title">Comidas</h1>
         <div className="section-actions">
           <button className="btn btn-secondary" onClick={handleOpenImport}>
-            📥 Importar CSV
+           Importar
           </button>
           <button className="btn btn-primary" onClick={handleOpenCreate}>
             + Nueva
@@ -396,6 +401,23 @@ const MealsPage = () => {
               onClick={() => setFilterDifficulty(opt.value)}
             >
               {opt.label}
+            </button>
+          ))}
+        </div>
+        <div className="meals-filter-chips">
+          <button
+            className={`chip ${filterLabel === '' ? 'selected' : ''}`}
+            onClick={() => setFilterLabel('')}
+          >
+            Todas
+          </button>
+          {LABEL_OPTIONS.map(label => (
+            <button
+              key={label}
+              className={`chip ${filterLabel === label ? 'selected' : ''}`}
+              onClick={() => setFilterLabel(label)}
+            >
+              {label}
             </button>
           ))}
         </div>

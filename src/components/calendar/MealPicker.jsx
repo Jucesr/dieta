@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import Modal from '../ui/Modal';
-import { MEAL_TIME_OPTIONS, DIFFICULTY_OPTIONS } from '../../models/types';
+import { MEAL_TIME_OPTIONS, DIFFICULTY_OPTIONS, LABEL_OPTIONS } from '../../models/types';
 import './MealPicker.css';
 
 const MealPicker = ({ isOpen, onClose, onSelect, mealTime, currentMealId }) => {
   const { meals } = useApp();
   const [search, setSearch] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState('');
+  const [filterLabel, setFilterLabel] = useState('');
 
   const mealTimeConfig = MEAL_TIME_OPTIONS.find(opt => opt.value === mealTime);
 
@@ -28,19 +29,25 @@ const MealPicker = ({ isOpen, onClose, onSelect, mealTime, currentMealId }) => {
       filtered = filtered.filter(meal => meal.difficulty === filterDifficulty);
     }
 
+    // Filter by label
+    if (filterLabel) {
+      filtered = filtered.filter(meal => meal.labels?.includes(filterLabel));
+    }
+
     // Sort: current meal first, then by name
     return filtered.sort((a, b) => {
       if (a.id === currentMealId) return -1;
       if (b.id === currentMealId) return 1;
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [meals, search, filterDifficulty, currentMealId]);
+  }, [meals, search, filterDifficulty, filterLabel, currentMealId]);
 
   const handleSelect = (meal) => {
     onSelect(meal);
     onClose();
     setSearch('');
     setFilterDifficulty('');
+    setFilterLabel('');
   };
 
   return (
@@ -74,6 +81,24 @@ const MealPicker = ({ isOpen, onClose, onSelect, mealTime, currentMealId }) => {
               onClick={() => setFilterDifficulty(opt.value)}
             >
               {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="meal-picker-filters">
+          <button
+            className={`chip ${filterLabel === '' ? 'selected' : ''}`}
+            onClick={() => setFilterLabel('')}
+          >
+            Todas
+          </button>
+          {LABEL_OPTIONS.map(label => (
+            <button
+              key={label}
+              className={`chip ${filterLabel === label ? 'selected' : ''}`}
+              onClick={() => setFilterLabel(label)}
+            >
+              {label}
             </button>
           ))}
         </div>
