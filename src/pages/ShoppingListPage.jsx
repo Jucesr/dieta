@@ -63,9 +63,9 @@ const ShoppingListPage = () => {
   const { 
     loading, 
     ingredients,
+    meals,
     scheduledMeals, 
-    mealIngredients, 
-    sideIngredients,
+    mealIngredients,
     selectedDate,
     setSelectedDate,
     loadScheduledMeals
@@ -143,8 +143,8 @@ const ShoppingListPage = () => {
 
   // Generate shopping list
   const shoppingList = useMemo(() => {
-    return aggregateIngredients(filteredMeals, mealIngredients, sideIngredients);
-  }, [filteredMeals, mealIngredients, sideIngredients]);
+    return aggregateIngredients(filteredMeals, mealIngredients, meals);
+  }, [filteredMeals, mealIngredients, meals]);
 
   // Get meals using selected ingredient
   const mealsUsingIngredient = useMemo(() => {
@@ -153,9 +153,9 @@ const ShoppingListPage = () => {
       selectedIngredient.name,
       filteredMeals,
       mealIngredients,
-      sideIngredients
+      meals
     );
-  }, [selectedIngredient, filteredMeals, mealIngredients, sideIngredients]);
+  }, [selectedIngredient, filteredMeals, mealIngredients, meals]);
 
   const handleDayToggle = (index) => {
     const newSelected = new Set(selectedDays);

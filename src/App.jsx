@@ -9,7 +9,6 @@ import CalendarPage from './pages/CalendarPage';
 import ShoppingListPage from './pages/ShoppingListPage';
 import MealsPage from './pages/MealsPage';
 import IngredientsPage from './pages/IngredientsPage';
-import SidesPage from './pages/SidesPage';
 import SettingsPage from './pages/SettingsPage';
 
 function App() {
@@ -32,7 +31,6 @@ function App() {
               <Route path="shopping" element={<ShoppingListPage />} />
               <Route path="meals" element={<MealsPage />} />
               <Route path="ingredients" element={<IngredientsPage />} />
-              <Route path="sides" element={<SidesPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
           </Routes>

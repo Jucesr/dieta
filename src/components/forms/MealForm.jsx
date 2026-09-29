@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { DIFFICULTY_OPTIONS, LABEL_OPTIONS, UNIT_OPTIONS } from '../../models/types';
+import { DIFFICULTY_OPTIONS, LABEL_OPTIONS, MAX_MEAL_SIDES, UNIT_OPTIONS } from '../../models/types';
 import Modal from '../ui/Modal';
 import './MealForm.css';
 
@@ -12,65 +12,18 @@ const MealForm = ({
   onAddIngredient,
   onRemoveIngredient,
   onLabelToggle,
-  onSideToggle,
   onSubmit,
   isEditing = false
 }) => {
-  const { sides, ingredients, createSide, createIngredient } = useApp();
-  const [showNewSideModal, setShowNewSideModal] = useState(false);
-  const [showPickSidesModal, setShowPickSidesModal] = useState(false);
-  const [newSideData, setNewSideData] = useState({ code: '', name: '' });
-  const [isCreatingSide, setIsCreatingSide] = useState(false);
+  const { ingredients, createIngredient } = useApp();
 
   // Ingredient search modal (same pattern as meals search)
   const [showIngredientSearchModal, setShowIngredientSearchModal] = useState(false);
-  const [ingredientSearchRowIndex, setIngredientSearchRowIndex] = useState(null);
+  const [ingredientSearchTarget, setIngredientSearchTarget] = useState(null);
   const [ingredientSearchQuery, setIngredientSearchQuery] = useState('');
   const [isCreatingIngredient, setIsCreatingIngredient] = useState(false);
 
-  const handleOpenNewSide = () => {
-    const nextCode = generateNextSideCode();
-    setNewSideData({ code: nextCode, name: '' });
-    setShowNewSideModal(true);
-  };
-
-  const generateNextSideCode = () => {
-    // Extract all numeric codes from existing sides
-    const numericCodes = sides
-      .map(side => {
-        if (!side.code) return 0;
-        // Extract numeric part from codes like "S01", "S001", etc.
-        const match = side.code.match(/\d+/);
-        return match ? parseInt(match[0], 10) : 0;
-      })
-      .filter(num => num > 0);
-    
-    // Find the maximum code number
-    const maxCode = numericCodes.length > 0 ? Math.max(...numericCodes) : 0;
-    
-    // Generate next code with "S" prefix and zero-padded to 2 digits
-    const nextNumber = maxCode + 1;
-    return `S${nextNumber.toString().padStart(2, '0')}`;
-  };
-
-  const handleCreateSide = async (e) => {
-    if (e?.preventDefault) e.preventDefault();
-    if (!newSideData.name?.trim()) return;
-    setIsCreatingSide(true);
-    try {
-      const created = await createSide(
-        { code: newSideData.code?.trim() || '', name: newSideData.name.trim(), labels: [], preference: '' },
-        []
-      );
-      onSideToggle(created.id);
-      setShowNewSideModal(false);
-      setNewSideData({ code: '', name: '' });
-    } catch (err) {
-      console.error('Error creating side:', err);
-    } finally {
-      setIsCreatingSide(false);
-    }
-  };
+  const sides = formData.sides || [];
 
   const filteredIngredients = useMemo(() => {
     const sorted = ingredients.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -81,33 +34,63 @@ const MealForm = ({
     );
   }, [ingredients, ingredientSearchQuery]);
 
-  const openIngredientSearch = (index) => {
-    setIngredientSearchRowIndex(index);
+  const updateSides = (nextSides) => {
+    onFormDataChange({ ...formData, sides: nextSides });
+  };
+
+  const handleAddSide = () => {
+    if (sides.length >= MAX_MEAL_SIDES) return;
+    updateSides([
+      ...sides,
+      { ingredientId: '', ingredientName: '', unit: 'gramos', quantity: 0 }
+    ]);
+  };
+
+  const handleRemoveSide = (index) => {
+    updateSides(sides.filter((_, i) => i !== index));
+  };
+
+  const handleSideChange = (index, field, value) => {
+    updateSides(sides.map((side, i) => (
+      i === index ? { ...side, [field]: value } : side
+    )));
+  };
+
+  const openIngredientSearch = (target) => {
+    setIngredientSearchTarget(target);
     setIngredientSearchQuery('');
     setShowIngredientSearchModal(true);
   };
 
   const closeIngredientSearch = () => {
     setShowIngredientSearchModal(false);
-    setIngredientSearchRowIndex(null);
+    setIngredientSearchTarget(null);
     setIngredientSearchQuery('');
   };
 
   const handleIngredientSelectFromModal = (ingredient) => {
-    if (ingredientSearchRowIndex === null) return;
-    if (ingredient) {
-      onIngredientChange(ingredientSearchRowIndex, 'ingredientId', ingredient.id);
-      onIngredientChange(ingredientSearchRowIndex, 'ingredientName', ingredient.name);
+    if (!ingredientSearchTarget) return;
+    const { type, index } = ingredientSearchTarget;
+    if (type === 'side') {
+      updateSides(sides.map((side, i) => {
+        if (i !== index) return side;
+        return ingredient
+          ? { ...side, ingredientId: ingredient.id, ingredientName: ingredient.name }
+          : { ...side, ingredientId: '', ingredientName: '' };
+      }));
+    } else if (ingredient) {
+      onIngredientChange(index, 'ingredientId', ingredient.id);
+      onIngredientChange(index, 'ingredientName', ingredient.name);
     } else {
-      onIngredientChange(ingredientSearchRowIndex, 'ingredientId', '');
-      onIngredientChange(ingredientSearchRowIndex, 'ingredientName', '');
+      onIngredientChange(index, 'ingredientId', '');
+      onIngredientChange(index, 'ingredientName', '');
     }
     closeIngredientSearch();
   };
 
   const handleCreateNewIngredient = async () => {
     const name = ingredientSearchQuery.trim();
-    if (!name || ingredientSearchRowIndex === null) return;
+    if (!name || !ingredientSearchTarget) return;
     setIsCreatingIngredient(true);
     try {
       const created = await createIngredient({ name });
@@ -181,34 +164,54 @@ const MealForm = ({
 
       <div className="form-group">
         <div className="form-label-row">
-          <label className="form-label">Guarniciones disponibles</label>
-          <div className="form-label-actions">
+          <label className="form-label">Guarniciones</label>
+          {sides.length < MAX_MEAL_SIDES && (
             <button
               type="button"
               className="btn btn-sm btn-secondary"
-              onClick={() => setShowPickSidesModal(true)}
+              onClick={handleAddSide}
             >
-              Ver y seleccionar
+              + Agregar
             </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-secondary"
-              onClick={handleOpenNewSide}
-            >
-              + Nueva guarnición
-            </button>
-          </div>
+          )}
         </div>
-        <div className="form-chips">
-          {sides.map(side => (
-            <button
-              key={side.id}
-              type="button"
-              className={`chip ${formData.sideIds.includes(side.id) ? 'selected' : ''}`}
-              onClick={() => onSideToggle(side.id)}
-            >
-              {side.name}
-            </button>
+        <p className="form-hint">
+          Hasta {MAX_MEAL_SIDES}. Se agregan a la compra y no modifican los ingredientes de la comida.
+        </p>
+        <div className="ingredients-list">
+          {sides.map((side, index) => (
+            <div key={index} className="ingredient-row">
+              <button
+                type="button"
+                className="ingredient-search-trigger"
+                onClick={() => openIngredientSearch({ type: 'side', index })}
+              >
+                {side.ingredientName || 'Buscar ingrediente...'}
+              </button>
+              <input
+                type="number"
+                placeholder="Cant"
+                value={side.quantity || ''}
+                onChange={(e) => handleSideChange(index, 'quantity', Number(e.target.value))}
+                style={{ width: '70px' }}
+              />
+              <select
+                value={side.unit}
+                onChange={(e) => handleSideChange(index, 'unit', e.target.value)}
+                style={{ width: '100px' }}
+              >
+                {UNIT_OPTIONS.map(unit => (
+                  <option key={unit} value={unit}>{unit}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn-icon btn-outline"
+                onClick={() => handleRemoveSide(index)}
+              >
+                ×
+              </button>
+            </div>
           ))}
         </div>
       </div>
@@ -230,7 +233,7 @@ const MealForm = ({
               <button
                 type="button"
                 className="ingredient-search-trigger"
-                onClick={() => openIngredientSearch(index)}
+                onClick={() => openIngredientSearch({ type: 'ingredient', index })}
               >
                 {ing.ingredientName || 'Buscar ingrediente...'}
               </button>
@@ -294,92 +297,6 @@ const MealForm = ({
     </form>
 
     {/* Modales fuera del form para evitar envío accidental */}
-    <Modal
-      isOpen={showNewSideModal}
-      onClose={() => setShowNewSideModal(false)}
-      title="Nueva guarnición"
-      footer={
-        <>
-          <button type="button" className="btn btn-secondary" onClick={() => setShowNewSideModal(false)}>
-            Cancelar
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={isCreatingSide || !newSideData.name?.trim()}
-            onClick={() => handleCreateSide()}
-          >
-            {isCreatingSide ? 'Creando...' : 'Crear y agregar'}
-          </button>
-        </>
-      }
-    >
-      <form
-        className="meal-form"
-        onSubmit={(e) => { e.preventDefault(); handleCreateSide(e); }}
-      >
-        <div className="form-row">
-          <div className="form-group" style={{ flex: '0 0 100px' }}>
-            <label className="form-label">Código</label>
-            <input
-              type="text"
-              value={newSideData.code}
-              onChange={(e) => setNewSideData(prev => ({ ...prev, code: e.target.value }))}
-              placeholder="S01"
-              readOnly
-              title="Código generado automáticamente"
-              style={{ backgroundColor: '#e9ecef', cursor: 'not-allowed', color: '#495057' }}
-            />
-          </div>
-          <div className="form-group" style={{ flex: 1 }}>
-            <label className="form-label">Nombre *</label>
-            <input
-              type="text"
-              value={newSideData.name}
-              onChange={(e) => setNewSideData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Arroz, Ensalada..."
-              required
-            />
-          </div>
-        </div>
-        <p className="form-hint">La guarnición se creará y se agregará a las disponibles para esta comida. Podrás editar ingredientes después en Guarniciones.</p>
-      </form>
-    </Modal>
-
-    <Modal
-      isOpen={showPickSidesModal}
-      onClose={() => setShowPickSidesModal(false)}
-      title="Seleccionar guarniciones disponibles"
-      footer={
-        <button type="button" className="btn btn-primary" onClick={() => setShowPickSidesModal(false)}>
-          Listo
-        </button>
-      }
-    >
-      <p className="form-hint" style={{ marginBottom: '1rem' }}>
-        Haz clic en una guarnición para agregarla o quitarla de las disponibles para esta comida.
-      </p>
-      <div className="form-chips sides-picker-chips">
-        {sides.length === 0 ? (
-          <p className="form-hint">No hay guarniciones. Crea una con &quot;+ Nueva guarnición&quot;.</p>
-        ) : (
-          sides
-            .slice()
-            .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-            .map(side => (
-              <button
-                key={side.id}
-                type="button"
-                className={`chip ${formData.sideIds.includes(side.id) ? 'selected' : ''}`}
-                onClick={() => onSideToggle(side.id)}
-              >
-                {side.code ? `${side.code} – ` : ''}{side.name}
-              </button>
-            ))
-        )}
-      </div>
-    </Modal>
-
     <Modal
       isOpen={showIngredientSearchModal}
       onClose={closeIngredientSearch}

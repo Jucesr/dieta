@@ -5,8 +5,8 @@ import NumberStepper from '../ui/NumberStepper';
 import Modal from '../ui/Modal';
 import './MealCard.css';
 
-const MealCard = ({ scheduledMeal, onEdit, onQuickChange, onDelete }) => {
-  const { sides, meals, updateScheduledMeal } = useApp();
+const MealCard = ({ scheduledMeal, onEdit, onQuickChange, onDelete, slotIndex = 0 }) => {
+  const { meals, updateScheduledMeal } = useApp();
   const [expanded, setExpanded] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   
@@ -15,17 +15,12 @@ const MealCard = ({ scheduledMeal, onEdit, onQuickChange, onDelete }) => {
   );
   
   const meal = meals.find(m => m.id === scheduledMeal.mealId);
-  const selectedSide = sides.find(s => s.id === scheduledMeal.selectedSideId);
-  const availableSides = meal?.sideIds?.map(
-    sideId => sides.find(s => s.id === sideId || s.code === sideId)
-  ).filter(Boolean) || [];
+  const sideNames = (meal?.sides || [])
+    .map(side => side.ingredientName)
+    .filter(Boolean);
 
   const handleServingsChange = async (newServings) => {
     await updateScheduledMeal(scheduledMeal.id, { servings: newServings });
-  };
-
-  const handleSideChange = async (sideIdOrNull) => {
-    await updateScheduledMeal(scheduledMeal.id, { selectedSideId: sideIdOrNull ?? null });
   };
 
   const handleOpenComplete = () => {
@@ -43,9 +38,8 @@ const MealCard = ({ scheduledMeal, onEdit, onQuickChange, onDelete }) => {
     await updateScheduledMeal(scheduledMeal.id, { completed: false });
   };
 
-  // Build display name: meal name + side name if exists
-  const displayName = selectedSide 
-    ? `${scheduledMeal.mealName} + ${selectedSide.name}`
+  const displayName = sideNames.length
+    ? `${scheduledMeal.mealName} + ${sideNames.join(', ')}`
     : scheduledMeal.mealName;
 
   return (
@@ -57,7 +51,9 @@ const MealCard = ({ scheduledMeal, onEdit, onQuickChange, onDelete }) => {
         <div className="meal-card-header" onClick={() => setExpanded(!expanded)}>
           <div className="meal-card-time">
             <span className="meal-card-icon">{mealTimeConfig?.icon}</span>
-            <span className="meal-card-label">{mealTimeConfig?.label}</span>
+            <span className="meal-card-label">
+              {mealTimeConfig?.label}{slotIndex > 0 ? ` ${slotIndex + 1}` : ''}
+            </span>
           </div>
           <div className="meal-card-name">
             {displayName}
@@ -89,26 +85,10 @@ const MealCard = ({ scheduledMeal, onEdit, onQuickChange, onDelete }) => {
               />
             </div>
             
-            {availableSides.length > 0 && (
+            {sideNames.length > 0 && (
               <div className="meal-card-row">
                 <span className="meal-card-row-label">Guarnición:</span>
-                <div className="meal-card-sides">
-                  <button
-                    className={`chip ${!scheduledMeal.selectedSideId ? 'selected' : ''}`}
-                    onClick={() => handleSideChange(null)}
-                  >
-                    Sin guarnición
-                  </button>
-                  {availableSides.map(side => (
-                    <button
-                      key={side.id}
-                      className={`chip ${scheduledMeal.selectedSideId === side.id ? 'selected' : ''}`}
-                      onClick={() => handleSideChange(side.id)}
-                    >
-                      {side.name}
-                    </button>
-                  ))}
-                </div>
+                <span>{sideNames.join(', ')}</span>
               </div>
             )}
             

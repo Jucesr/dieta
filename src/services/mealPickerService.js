@@ -244,7 +244,6 @@ export const generateDayPlan = ({
         mealTime,
         mealId: picked.id,
         mealName: picked.name,
-        selectedSideId: picked.sideIds?.[0] || null,
         servings: 1,
         isDelivery: picked.isDelivery || false
       });

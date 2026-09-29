@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { logOut } from '../services/authService';
+import { version } from '../../package.json';
 import './Navigation.css';
 
 const navItems = [
@@ -25,7 +26,10 @@ const Navigation = () => {
     <>
       <div className="top-bar">
         <div className="user-info">
-          <span className="user-name">{user?.displayName || user?.email}</span>
+          <span className="user-name">
+            {user?.displayName || user?.email}
+            <span className="app-version">v{version}</span>
+          </span>
           <button onClick={handleLogout} className="logout-btn">
             Cerrar sesión
           </button>

@@ -4,7 +4,7 @@ import Modal from '../components/ui/Modal';
 import MealForm from '../components/forms/MealForm';
 import Loading from '../components/ui/Loading';
 import EmptyState from '../components/ui/EmptyState';
-import { DIFFICULTY_OPTIONS, LABEL_OPTIONS } from '../models/types';
+import { DIFFICULTY_OPTIONS, LABEL_OPTIONS, mealDetailsChanged, mealIngredientsChanged, normalizeMealSides } from '../models/types';
 import { ingredientsService } from '../services/firebaseService';
 import './MealsPage.css';
 
@@ -56,7 +56,6 @@ const parseCSVLine = (line) => {
 const MealsPage = () => {
   const { 
     meals, 
-    sides,
     mealIngredients,
     ingredients,
     loading, 
@@ -85,12 +84,15 @@ const MealsPage = () => {
     name: '',
     difficulty: 'Sencillas',
     labels: [],
-    sideIds: [],
+    sides: [],
     preparation: '',
     variations: '',
     preference: ''
   });
   const [formIngredients, setFormIngredients] = useState([]);
+  const [isSavingMeal, setIsSavingMeal] = useState(false);
+  const savingMealRef = useRef(false);
+  const initialMealRef = useRef(null);
 
   const filteredMeals = useMemo(() => {
     let filtered = meals;
@@ -120,7 +122,7 @@ const MealsPage = () => {
       name: '',
       difficulty: 'Sencillas',
       labels: [],
-      sideIds: [],
+      sides: [],
       preparation: '',
       variations: '',
       preference: ''
@@ -157,23 +159,21 @@ const MealsPage = () => {
   };
 
   const handleOpenEdit = (meal) => {
-    setEditingMeal(meal);
-    // Resolve sideIds (pueden ser códigos S01 o ids) a ids para que los chips se marquen
-    const resolvedSideIds = (meal.sideIds || []).map(sideRef => {
-      const side = sides.find(s => s.code === sideRef || s.id === sideRef);
-      return side?.id || sideRef;
-    }).filter(Boolean);
-    setFormData({
+    const form = {
       code: meal.code || '',
       name: meal.name || '',
       difficulty: meal.difficulty || 'Sencillas',
-      labels: meal.labels || [],
-      sideIds: resolvedSideIds,
+      labels: [...(meal.labels || [])],
+      sides: (meal.sides || []).map(side => ({ ...side })),
       preparation: meal.preparation || '',
       variations: meal.variations || '',
       preference: meal.preference || ''
-    });
-    setFormIngredients(mealIngredients[meal.id] || []);
+    };
+    const ingredients = (mealIngredients[meal.id] || []).map(ingredient => ({ ...ingredient }));
+    setEditingMeal(meal);
+    setFormData(form);
+    setFormIngredients(ingredients);
+    initialMealRef.current = { meal: form, ingredients };
     setShowForm(true);
   };
 
@@ -184,14 +184,32 @@ const MealsPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (editingMeal) {
-      await updateMeal(editingMeal.id, formData, formIngredients);
-    } else {
-      await createMeal({ ...formData, useCount: 0 }, formIngredients);
+    if (savingMealRef.current) return;
+
+    savingMealRef.current = true;
+    setIsSavingMeal(true);
+    try {
+      const payload = { ...formData, sides: normalizeMealSides(formData.sides) };
+      if (editingMeal) {
+        const initial = initialMealRef.current;
+        const detailsChanged = !initial || mealDetailsChanged(initial.meal, payload);
+        const ingredientsChanged = !initial || mealIngredientsChanged(initial.ingredients, formIngredients);
+        if (detailsChanged || ingredientsChanged) {
+          await updateMeal(
+            editingMeal.id,
+            detailsChanged ? payload : null,
+            ingredientsChanged ? formIngredients : null
+          );
+        }
+      } else {
+        await createMeal({ ...payload, useCount: 0 }, formIngredients);
+      }
+
+      handleClose();
+    } finally {
+      savingMealRef.current = false;
+      setIsSavingMeal(false);
     }
-    
-    handleClose();
   };
 
   const handleDelete = async (meal) => {
@@ -206,15 +224,6 @@ const MealsPage = () => {
       labels: prev.labels.includes(label)
         ? prev.labels.filter(l => l !== label)
         : [...prev.labels, label]
-    }));
-  };
-
-  const handleSideToggle = (sideId) => {
-    setFormData(prev => ({
-      ...prev,
-      sideIds: prev.sideIds.includes(sideId)
-        ? prev.sideIds.filter(s => s !== sideId)
-        : [...prev.sideIds, sideId]
     }));
   };
 
@@ -279,7 +288,7 @@ const MealsPage = () => {
           preparation: row.Preparacion || '',
           preference: row.Preferencia || '',
           variations: row.Variaciones || '',
-          sideIds: row.Sides ? row.Sides.split(';').map(s => s.trim()).filter(Boolean) : [],
+          sides: [],
           useCount: parseInt(row.Contador) || 0
         })),
         ingredients: ingredientsData
@@ -337,16 +346,7 @@ const MealsPage = () => {
             };
           });
         
-        // Resolve side IDs (they might be codes like S01, S02)
-        const resolvedSideIds = mealData.sideIds.map(sideRef => {
-          const side = sides.find(s => s.code === sideRef || s.id === sideRef);
-          return side?.id || sideRef;
-        }).filter(Boolean);
-        
-        await createMeal({
-          ...mealData,
-          sideIds: resolvedSideIds
-        }, mealIngreds);
+        await createMeal(mealData, mealIngreds);
         
         imported++;
       }
@@ -439,7 +439,14 @@ const MealsPage = () => {
             <div key={meal.id} className="meal-list-item">
               <div className="meal-list-info" onClick={() => handleOpenEdit(meal)}>
                 <span className="meal-list-code">{meal.code}</span>
-                <span className="meal-list-name">{meal.name}</span>
+                <span className="meal-list-name">
+                  {meal.name}
+                  {meal.sides?.length > 0 && (
+                    <span className="meal-list-sides">
+                      {' '}+ {meal.sides.map(side => side.ingredientName).filter(Boolean).join(', ')}
+                    </span>
+                  )}
+                </span>
                 {meal.difficulty && (
                   <span className={`badge badge-${
                     DIFFICULTY_OPTIONS.find(d => d.value === meal.difficulty)?.color
@@ -476,7 +483,7 @@ const MealsPage = () => {
             <button className="btn btn-secondary" onClick={handleClose}>
               Cancelar
             </button>
-            <button className="btn btn-primary" onClick={handleSubmit}>
+            <button className="btn btn-primary" onClick={handleSubmit} disabled={isSavingMeal}>
               {editingMeal ? 'Guardar' : 'Crear'}
             </button>
           </>
@@ -490,7 +497,6 @@ const MealsPage = () => {
           onAddIngredient={handleAddIngredient}
           onRemoveIngredient={handleRemoveIngredient}
           onLabelToggle={handleLabelToggle}
-          onSideToggle={handleSideToggle}
           onSubmit={handleSubmit}
           isEditing={!!editingMeal}
           datalistId="ingredients-datalist"
@@ -533,7 +539,7 @@ const MealsPage = () => {
             <div className="import-info">
               <p>Selecciona los archivos CSV para importar comidas.</p>
               <p className="import-hint">
-                <strong>Formato de comidas:</strong> Codigo, Nombre, Dificultad, Etiquetas, Contador, Ingredientes, Preparacion, Preferencia, Variaciones, Sides
+                <strong>Formato de comidas:</strong> Codigo, Nombre, Dificultad, Etiquetas, Contador, Ingredientes, Preparacion, Preferencia, Variaciones
               </p>
               <p className="import-hint">
                 <strong>Formato de ingredientes:</strong> Meal Code, Nombre, Unidad, Cantidad

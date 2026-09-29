@@ -63,6 +63,11 @@
   color: var(--text-primary);
 }
 
+.meal-list-sides {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
 .meal-list-actions {
   display: flex;
   gap: 0.375rem;

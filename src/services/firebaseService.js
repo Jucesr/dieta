@@ -20,8 +20,6 @@ const COLLECTIONS = {
   MEALS: 'meals',
   INGREDIENTS: 'ingredients',
   MEAL_INGREDIENTS: 'mealIngredients',
-  SIDES: 'sides',
-  SIDE_INGREDIENTS: 'sideIngredients',
   SCHEDULED_MEALS: 'scheduledMeals',
   DELIVERY_RULES: 'deliveryRules',
   SETTINGS: 'settings'
@@ -39,6 +37,37 @@ function userCollection(collectionName) {
 
 function userDoc(collectionName, id) {
   return doc(db, 'users', getUserId(), collectionName, id);
+}
+
+/** Document id wins over any `id` field stored in the document body. */
+function mapDoc(snapshot) {
+  return { ...snapshot.data(), id: snapshot.id };
+}
+
+const mealIngredientWrites = new Map();
+
+function enqueueMealIngredientWrite(mealId, task) {
+  const previous = mealIngredientWrites.get(mealId) || Promise.resolve();
+  const current = previous.catch(() => {}).then(task);
+  mealIngredientWrites.set(mealId, current);
+  current.finally(() => {
+    if (mealIngredientWrites.get(mealId) === current) {
+      mealIngredientWrites.delete(mealId);
+    }
+  });
+  return current;
+}
+
+function mealIngredientRecord(mealId, ing) {
+  return {
+    mealId,
+    ingredientId: ing.ingredientId || '',
+    ingredientName: ing.ingredientName || '',
+    unit: ing.unit || 'gramos',
+    quantity: Number(ing.quantity) || 0,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now()
+  };
 }
 
 // Generic CRUD operations (user-scoped)
@@ -68,7 +97,7 @@ const getDocument = async (collectionName, id) => {
   const docRef = userDoc(collectionName, id);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() };
+    return mapDoc(docSnap);
   }
   return null;
 };
@@ -76,7 +105,7 @@ const getDocument = async (collectionName, id) => {
 const getAllDocuments = async (collectionName, orderByField = 'name') => {
   const q = query(userCollection(collectionName), orderBy(orderByField));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  return querySnapshot.docs.map(mapDoc);
 };
 
 // Meals
@@ -101,7 +130,7 @@ export const mealsService = {
       where('labels', 'array-contains-any', labels)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return querySnapshot.docs.map(mapDoc);
   },
   incrementUseCount: async (id) => {
     const meal = await getDocument(COLLECTIONS.MEALS, id);
@@ -127,8 +156,7 @@ export const ingredientsService = {
     );
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
-      const doc = querySnapshot.docs[0];
-      return { id: doc.id, ...doc.data() };
+      return mapDoc(querySnapshot.docs[0]);
     }
     return null;
   },
@@ -189,7 +217,7 @@ export const ingredientsService = {
 export const mealIngredientsService = {
   getAll: async () => {
     const querySnapshot = await getDocs(userCollection(COLLECTIONS.MEAL_INGREDIENTS));
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return querySnapshot.docs.map(mapDoc);
   },
   getByMealId: async (mealId) => {
     const q = query(
@@ -197,91 +225,30 @@ export const mealIngredientsService = {
       where('mealId', '==', mealId)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return querySnapshot.docs.map(mapDoc);
   },
   create: (data) => createDocument(COLLECTIONS.MEAL_INGREDIENTS, data),
   update: (id, data) => updateDocument(COLLECTIONS.MEAL_INGREDIENTS, id, data),
   delete: (id) => deleteDocument(COLLECTIONS.MEAL_INGREDIENTS, id),
   batchUpdate: async (mealId, ingredients) => {
-    const batch = writeBatch(db);
-    
-    // Delete existing
-    const existing = await mealIngredientsService.getByMealId(mealId);
-    existing.forEach(ing => {
-      batch.delete(userDoc(COLLECTIONS.MEAL_INGREDIENTS, ing.id));
-    });
+    return enqueueMealIngredientWrite(mealId, async () => {
+      const batch = writeBatch(db);
+      const existing = await getDocs(query(
+        userCollection(COLLECTIONS.MEAL_INGREDIENTS),
+        where('mealId', '==', mealId)
+      ));
 
-    // Add new
-    for (const ing of ingredients) {
-      const docRef = doc(userCollection(COLLECTIONS.MEAL_INGREDIENTS));
-      batch.set(docRef, {
-        ...ing,
-        mealId,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+      existing.docs.forEach((snapshot) => {
+        batch.delete(snapshot.ref);
       });
-    }
-    
-    await batch.commit();
-  }
-};
 
-// Sides
-export const sidesService = {
-  getAll: () => getAllDocuments(COLLECTIONS.SIDES),
-  getById: (id) => getDocument(COLLECTIONS.SIDES, id),
-  create: (data) => createDocument(COLLECTIONS.SIDES, data),
-  update: (id, data) => updateDocument(COLLECTIONS.SIDES, id, data),
-  delete: async (id) => {
-    // Also delete associated side ingredients
-    const ingredients = await sideIngredientsService.getBySideId(id);
-    const batch = writeBatch(db);
-    ingredients.forEach(ing => {
-      batch.delete(userDoc(COLLECTIONS.SIDE_INGREDIENTS, ing.id));
+      for (const ing of ingredients) {
+        const docRef = doc(userCollection(COLLECTIONS.MEAL_INGREDIENTS));
+        batch.set(docRef, mealIngredientRecord(mealId, ing));
+      }
+
+      await batch.commit();
     });
-    batch.delete(userDoc(COLLECTIONS.SIDES, id));
-    await batch.commit();
-  }
-};
-
-// Side Ingredients
-export const sideIngredientsService = {
-  getAll: async () => {
-    const querySnapshot = await getDocs(userCollection(COLLECTIONS.SIDE_INGREDIENTS));
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  },
-  getBySideId: async (sideId) => {
-    const q = query(
-      userCollection(COLLECTIONS.SIDE_INGREDIENTS),
-      where('sideId', '==', sideId)
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  },
-  create: (data) => createDocument(COLLECTIONS.SIDE_INGREDIENTS, data),
-  update: (id, data) => updateDocument(COLLECTIONS.SIDE_INGREDIENTS, id, data),
-  delete: (id) => deleteDocument(COLLECTIONS.SIDE_INGREDIENTS, id),
-  batchUpdate: async (sideId, ingredients) => {
-    const batch = writeBatch(db);
-    
-    // Delete existing
-    const existing = await sideIngredientsService.getBySideId(sideId);
-    existing.forEach(ing => {
-      batch.delete(userDoc(COLLECTIONS.SIDE_INGREDIENTS, ing.id));
-    });
-
-    // Add new
-    for (const ing of ingredients) {
-      const docRef = doc(userCollection(COLLECTIONS.SIDE_INGREDIENTS));
-      batch.set(docRef, {
-        ...ing,
-        sideId,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
-      });
-    }
-    
-    await batch.commit();
   }
 };
 
@@ -295,7 +262,7 @@ export const scheduledMealsService = {
       orderBy('date')
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return querySnapshot.docs.map(mapDoc);
   },
   getByDate: async (date) => {
     const q = query(
@@ -303,7 +270,7 @@ export const scheduledMealsService = {
       where('date', '==', date)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return querySnapshot.docs.map(mapDoc);
   },
   create: (data) => createDocument(COLLECTIONS.SCHEDULED_MEALS, data),
   update: (id, data) => updateDocument(COLLECTIONS.SCHEDULED_MEALS, id, data),
@@ -340,7 +307,7 @@ export const scheduledMealsService = {
 export const deliveryRulesService = {
   getAll: async () => {
     const querySnapshot = await getDocs(userCollection(COLLECTIONS.DELIVERY_RULES));
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return querySnapshot.docs.map(mapDoc);
   },
   create: (data) => createDocument(COLLECTIONS.DELIVERY_RULES, data),
   update: (id, data) => updateDocument(COLLECTIONS.DELIVERY_RULES, id, data),
@@ -353,7 +320,7 @@ export const deliveryRulesService = {
       where('enabled', '==', true)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return querySnapshot.docs.map(mapDoc);
   }
 };
 

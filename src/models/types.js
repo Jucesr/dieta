@@ -9,7 +9,7 @@
  * @property {string} name - Meal name
  * @property {Difficulty} difficulty - How difficult to prepare
  * @property {string[]} labels - Tags/categories (Comida, Desayuno, Cena, etc.)
- * @property {string[]} sideIds - IDs of available sides
+ * @property {MealSide[]} [sides] - Up to 2 ingredient sides, stored apart from meal ingredients
  * @property {string} preparation - Preparation instructions
  * @property {string[]} preferTime - Preferred meal times (breakfast, lunch, dinner)
  * @property {string} variations - Possible variations
@@ -18,10 +18,18 @@
  * @property {Date} createdAt
  * @property {Date} updatedAt
  * 
+ * @typedef {Object} NutritionPer100g
+ * @property {number|null} protein - Grams of protein per 100 g
+ * @property {number|null} carbs - Grams of carbohydrate per 100 g (includes sugar)
+ * @property {number|null} fat - Grams of fat per 100 g
+ * @property {number|null} sugar - Grams of sugar per 100 g (already included in carbs)
+ *
  * @typedef {Object} Ingredient
  * @property {string} id - Unique identifier
  * @property {string} name - Ingredient name
  * @property {string} [categoryId] - Ingredient category id (see INGREDIENT_CATEGORIES)
+ * @property {NutritionPer100g} [nutritionPer100g] - Macros per 100 g; kcal is derived
+ * @property {Object.<string, number>} [unitWeights] - Grams in 1 of each non-gram unit (pieza, cucharada, ...)
  * @property {Date} createdAt
  * 
  * @typedef {Object} MealIngredient
@@ -32,20 +40,11 @@
  * @property {string} unit - Unit of measurement (gramos, pieza, cucharada, etc.)
  * @property {number} quantity - Quantity needed
  * 
- * @typedef {Object} Side
- * @property {string} id - Unique identifier
- * @property {string} code - Side code (e.g., S01)
- * @property {string} name - Side name
- * @property {string[]} labels - Tags/categories
- * @property {string} preference - Who prefers this side
- * @property {Date} createdAt
- * 
- * @typedef {Object} SideIngredient
- * @property {string} id
- * @property {string} sideId - Reference to side
- * @property {string} ingredientName - Ingredient name
+ * @typedef {Object} MealSide
+ * @property {string} ingredientId - Reference to ingredient
+ * @property {string} ingredientName - Ingredient name (denormalized)
  * @property {string} unit - Unit of measurement
- * @property {number} quantity - Quantity needed
+ * @property {number} quantity - Quantity for this side
  * 
  * @typedef {Object} ScheduledMeal
  * @property {string} id
@@ -53,7 +52,6 @@
  * @property {MealTime} mealTime - Which meal of the day
  * @property {string} mealId - Reference to meal
  * @property {string} mealName - Meal name (denormalized)
- * @property {string|null} selectedSideId - Selected side for this meal (null = sin guarnición)
  * @property {number} servings - Number of servings (portion multiplier)
  * @property {boolean} isDelivery - Whether this is delivery food
  * @property {Date} createdAt
@@ -84,6 +82,65 @@ export const LABEL_OPTIONS = [
   'Cena',
   'Snack'
 ];
+
+export const MAX_MEAL_SIDES = 2;
+
+/** Keeps only named sides, capped at MAX_MEAL_SIDES. */
+export function normalizeMealSides(sides) {
+  return (Array.isArray(sides) ? sides : [])
+    .filter((side) => side?.ingredientName?.trim())
+    .slice(0, MAX_MEAL_SIDES)
+    .map((side) => ({
+      ingredientId: side.ingredientId || '',
+      ingredientName: side.ingredientName.trim(),
+      unit: side.unit || 'gramos',
+      quantity: Number(side.quantity) || 0,
+    }));
+}
+
+function sameTextList(left, right) {
+  const a = Array.isArray(left) ? left : [];
+  const b = Array.isArray(right) ? right : [];
+  return a.length === b.length && a.every((item, index) => item === b[index]);
+}
+
+function ingredientSnapshot(ingredient) {
+  return {
+    ingredientId: ingredient?.ingredientId || '',
+    ingredientName: (ingredient?.ingredientName || '').trim(),
+    unit: ingredient?.unit || 'gramos',
+    quantity: Number(ingredient?.quantity) || 0,
+  };
+}
+
+/** True when the saved ingredient rows differ from the ones loaded into the form. */
+export function mealIngredientsChanged(previous, next) {
+  const before = previous || [];
+  const after = next || [];
+  if (before.length !== after.length) return true;
+  return before.some((ingredient, index) => {
+    const left = ingredientSnapshot(ingredient);
+    const right = ingredientSnapshot(after[index]);
+    return left.ingredientId !== right.ingredientId
+      || left.ingredientName !== right.ingredientName
+      || left.unit !== right.unit
+      || left.quantity !== right.quantity;
+  });
+}
+
+/** True when meal fields edited in the form differ from the loaded meal. */
+export function mealDetailsChanged(previous, next) {
+  const beforeSides = normalizeMealSides(previous?.sides);
+  const afterSides = normalizeMealSides(next?.sides);
+  return (previous?.code || '') !== (next?.code || '')
+    || (previous?.name || '') !== (next?.name || '')
+    || (previous?.difficulty || '') !== (next?.difficulty || '')
+    || (previous?.preparation || '') !== (next?.preparation || '')
+    || (previous?.variations || '') !== (next?.variations || '')
+    || (previous?.preference || '') !== (next?.preference || '')
+    || !sameTextList(previous?.labels, next?.labels)
+    || mealIngredientsChanged(beforeSides, afterSides);
+}
 
 export const UNIT_OPTIONS = [
   'gramos',

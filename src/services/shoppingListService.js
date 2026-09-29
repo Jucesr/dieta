@@ -1,90 +1,72 @@
 /**
  * Shopping List Service
- * 
- * Aggregates ingredients from scheduled meals for shopping lists
+ *
+ * Aggregates ingredients from scheduled meals, including ingredient sides
+ * stored on the meal itself.
  */
 
+function mealsById(meals) {
+  const map = {};
+  for (const meal of meals || []) {
+    map[meal.id] = meal;
+  }
+  return map;
+}
+
+function addShoppingLine(ingredientMap, ing, scheduled, isSide) {
+  if (!ing?.ingredientName) return;
+  const { mealId, servings = 1 } = scheduled;
+  const key = `${ing.ingredientName}-${ing.unit}`;
+  const mealRef = {
+    mealId,
+    mealName: scheduled.mealName,
+    date: scheduled.date,
+    mealTime: scheduled.mealTime,
+    ...(isSide ? { isSide: true } : {}),
+  };
+  const existing = ingredientMap.get(key);
+
+  if (existing) {
+    existing.quantity += (ing.quantity || 0) * servings;
+    existing.meals.push(mealRef);
+  } else {
+    ingredientMap.set(key, {
+      name: ing.ingredientName,
+      unit: ing.unit,
+      quantity: (ing.quantity || 0) * servings,
+      meals: [mealRef],
+    });
+  }
+}
+
 /**
- * Aggregates ingredients from meals and sides
+ * Aggregates ingredients from meals and their ingredient sides.
  * @param {Array} scheduledMeals - Scheduled meals for the period
  * @param {Object} mealIngredients - Map of mealId to ingredients array
- * @param {Object} sideIngredients - Map of sideId to ingredients array
+ * @param {Array} meals - Meal definitions, each with an optional sides array
  * @returns {Array} Aggregated shopping list
  */
 export const aggregateIngredients = (
   scheduledMeals,
   mealIngredients,
-  sideIngredients
+  meals
 ) => {
   const ingredientMap = new Map();
-  
+  const mealLookup = mealsById(meals);
+
   for (const scheduled of scheduledMeals) {
-    const { mealId, selectedSideId, servings = 1 } = scheduled;
-    
-    // Add meal ingredients
-    const mealIngs = mealIngredients[mealId] || [];
+    const mealIngs = mealIngredients[scheduled.mealId] || [];
     for (const ing of mealIngs) {
-      const key = `${ing.ingredientName}-${ing.unit}`;
-      const existing = ingredientMap.get(key);
-      
-      if (existing) {
-        existing.quantity += (ing.quantity || 0) * servings;
-        existing.meals.push({
-          mealId,
-          mealName: scheduled.mealName,
-          date: scheduled.date,
-          mealTime: scheduled.mealTime
-        });
-      } else {
-        ingredientMap.set(key, {
-          name: ing.ingredientName,
-          unit: ing.unit,
-          quantity: (ing.quantity || 0) * servings,
-          meals: [{
-            mealId,
-            mealName: scheduled.mealName,
-            date: scheduled.date,
-            mealTime: scheduled.mealTime
-          }]
-        });
-      }
+      addShoppingLine(ingredientMap, ing, scheduled, false);
     }
-    
-    // Add side ingredients
-    if (selectedSideId) {
-      const sideIngs = sideIngredients[selectedSideId] || [];
-      for (const ing of sideIngs) {
-        const key = `${ing.ingredientName}-${ing.unit}`;
-        const existing = ingredientMap.get(key);
-        
-        if (existing) {
-          existing.quantity += (ing.quantity || 0) * servings;
-          existing.meals.push({
-            mealId,
-            mealName: scheduled.mealName,
-            date: scheduled.date,
-            mealTime: scheduled.mealTime,
-            isSide: true
-          });
-        } else {
-          ingredientMap.set(key, {
-            name: ing.ingredientName,
-            unit: ing.unit,
-            quantity: (ing.quantity || 0) * servings,
-            meals: [{
-              mealId,
-              mealName: scheduled.mealName,
-              date: scheduled.date,
-              mealTime: scheduled.mealTime,
-              isSide: true
-            }]
-          });
-        }
-      }
+
+    const sideIngs = mealLookup[scheduled.mealId]?.sides || [];
+    for (const ing of sideIngs) {
+      addShoppingLine(ingredientMap, ing, scheduled, true);
     }
   }
-  
-  return Array.from(ingredientMap.values()).sort((a, b) => 
+
+  return Array.from(ingredientMap.values()).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
 };
@@ -95,8 +77,6 @@ export const aggregateIngredients = (
  * @returns {Object} Grouped ingredients
  */
 export const groupByCategory = (ingredients) => {
-  // For now, just return a single group
-  // This can be enhanced later with ingredient categories
   return {
     'Todos los ingredientes': ingredients
   };
@@ -107,56 +87,49 @@ export const groupByCategory = (ingredients) => {
  * @param {Array} scheduledMeals - All scheduled meals
  * @param {Array} selectedDates - Dates to include
  * @param {Object} mealIngredients - Map of mealId to ingredients
- * @param {Object} sideIngredients - Map of sideId to ingredients
+ * @param {Array} meals - Meal definitions
  * @returns {Array} Filtered and aggregated shopping list
  */
 export const getShoppingListForDates = (
   scheduledMeals,
   selectedDates,
   mealIngredients,
-  sideIngredients
+  meals
 ) => {
-  const filteredMeals = scheduledMeals.filter(meal => 
+  const filteredMeals = scheduledMeals.filter(meal =>
     selectedDates.includes(meal.date)
   );
-  
-  return aggregateIngredients(filteredMeals, mealIngredients, sideIngredients);
+
+  return aggregateIngredients(filteredMeals, mealIngredients, meals);
 };
 
 /**
- * Gets meals that use a specific ingredient
+ * Gets meals that use a specific ingredient, including as a side.
  * @param {string} ingredientName - Name of the ingredient
  * @param {Array} scheduledMeals - Scheduled meals to search
  * @param {Object} mealIngredients - Map of mealId to ingredients
- * @param {Object} sideIngredients - Map of sideId to ingredients
+ * @param {Array} meals - Meal definitions
  * @returns {Array} Meals using this ingredient
  */
 export const getMealsUsingIngredient = (
   ingredientName,
   scheduledMeals,
   mealIngredients,
-  sideIngredients
+  meals
 ) => {
   const mealsWithIngredient = [];
-  
+  const mealLookup = mealsById(meals);
+  const target = ingredientName.toLowerCase();
+
   for (const scheduled of scheduledMeals) {
-    const { mealId, selectedSideId } = scheduled;
-    
-    // Check meal ingredients
-    const mealIngs = mealIngredients[mealId] || [];
-    const foundInMeal = mealIngs.some(ing => 
-      ing.ingredientName.toLowerCase() === ingredientName.toLowerCase()
+    const mealIngs = mealIngredients[scheduled.mealId] || [];
+    const foundInMeal = mealIngs.some(ing =>
+      ing.ingredientName?.toLowerCase() === target
     );
-    
-    // Check side ingredients
-    let foundInSide = false;
-    if (selectedSideId) {
-      const sideIngs = sideIngredients[selectedSideId] || [];
-      foundInSide = sideIngs.some(ing => 
-        ing.ingredientName.toLowerCase() === ingredientName.toLowerCase()
-      );
-    }
-    
+    const foundInSide = (mealLookup[scheduled.mealId]?.sides || []).some(ing =>
+      ing.ingredientName?.toLowerCase() === target
+    );
+
     if (foundInMeal || foundInSide) {
       mealsWithIngredient.push({
         ...scheduled,
@@ -164,7 +137,7 @@ export const getMealsUsingIngredient = (
       });
     }
   }
-  
+
   return mealsWithIngredient;
 };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
@@ -10,13 +10,13 @@ import MealForm from '../components/forms/MealForm';
 import Loading from '../components/ui/Loading';
 import Modal from '../components/ui/Modal';
 import { pickMeal } from '../services/mealPickerService';
+import { mealDetailsChanged, mealIngredientsChanged, normalizeMealSides } from '../models/types';
 import './CalendarPage.css';
 
 const CalendarPage = () => {
   const {
     loading,
     meals,
-    sides,
     mealIngredients,
     scheduledMeals,
     mealTimes,
@@ -48,12 +48,15 @@ const CalendarPage = () => {
     name: '',
     difficulty: 'Sencillas',
     labels: [],
-    sideIds: [],
+    sides: [],
     preparation: '',
     variations: '',
     preference: ''
   });
   const [mealFormIngredients, setMealFormIngredients] = useState([]);
+  const [isSavingMeal, setIsSavingMeal] = useState(false);
+  const savingMealRef = useRef(false);
+  const initialMealRef = useRef(null);
 
   // Load scheduled meals for current week
   const loadWeekMeals = useCallback(async () => {
@@ -103,23 +106,21 @@ const CalendarPage = () => {
     // Find the actual meal data
     const meal = meals.find(m => m.id === scheduledMeal.mealId);
     if (!meal) return;
-    // Resolve sideIds (pueden ser códigos S01 o ids) a ids para que los chips se marquen
-    const resolvedSideIds = (meal.sideIds || []).map(sideRef => {
-      const side = sides.find(s => s.code === sideRef || s.id === sideRef);
-      return side?.id || sideRef;
-    }).filter(Boolean);
-    setEditingScheduledMeal(scheduledMeal);
-    setMealFormData({
+    const form = {
       code: meal.code || '',
       name: meal.name || '',
       difficulty: meal.difficulty || 'Sencillas',
-      labels: meal.labels || [],
-      sideIds: resolvedSideIds,
+      labels: [...(meal.labels || [])],
+      sides: (meal.sides || []).map(side => ({ ...side })),
       preparation: meal.preparation || '',
       variations: meal.variations || '',
       preference: meal.preference || ''
-    });
-    setMealFormIngredients(mealIngredients[meal.id] || []);
+    };
+    const ingredients = (mealIngredients[meal.id] || []).map(ingredient => ({ ...ingredient }));
+    setEditingScheduledMeal(scheduledMeal);
+    setMealFormData(form);
+    setMealFormIngredients(ingredients);
+    initialMealRef.current = { meal: form, ingredients };
     setShowMealEditModal(true);
   };
 
@@ -137,7 +138,6 @@ const CalendarPage = () => {
       await updateScheduledMeal(editingScheduledMeal.id, {
         mealId: newMeal.id,
         mealName: newMeal.name,
-        selectedSideId: newMeal.sideIds?.[0] || null
       });
       setEditingScheduledMeal(null);
     } else if (addingMealTime) {
@@ -148,7 +148,6 @@ const CalendarPage = () => {
         mealTime: addingMealTime,
         mealId: newMeal.id,
         mealName: newMeal.name,
-        selectedSideId: newMeal.sideIds?.[0] || null,
         servings: 1,
         isDelivery: false,
         completed: false
@@ -158,23 +157,39 @@ const CalendarPage = () => {
   };
 
   const handleSaveMealEdit = async () => {
-    if (!editingScheduledMeal) return;
-    
+    if (!editingScheduledMeal || savingMealRef.current) return;
+
     const meal = meals.find(m => m.id === editingScheduledMeal.mealId);
     if (!meal) return;
-    
-    // Update the meal definition
-    await updateMeal(meal.id, mealFormData, mealFormIngredients);
-    
-    // Update the scheduled meal name if it changed
-    if (mealFormData.name !== meal.name) {
-      await updateScheduledMeal(editingScheduledMeal.id, {
-        mealName: mealFormData.name
-      });
+
+    savingMealRef.current = true;
+    setIsSavingMeal(true);
+    try {
+      const nextMeal = { ...mealFormData, sides: normalizeMealSides(mealFormData.sides) };
+      const initial = initialMealRef.current;
+      const detailsChanged = !initial || mealDetailsChanged(initial.meal, nextMeal);
+      const ingredientsChanged = !initial || mealIngredientsChanged(initial.ingredients, mealFormIngredients);
+
+      if (detailsChanged || ingredientsChanged) {
+        await updateMeal(
+          meal.id,
+          detailsChanged ? nextMeal : null,
+          ingredientsChanged ? mealFormIngredients : null
+        );
+      }
+
+      if (mealFormData.name !== meal.name) {
+        await updateScheduledMeal(editingScheduledMeal.id, {
+          mealName: mealFormData.name
+        });
+      }
+
+      setShowMealEditModal(false);
+      setEditingScheduledMeal(null);
+    } finally {
+      savingMealRef.current = false;
+      setIsSavingMeal(false);
     }
-    
-    setShowMealEditModal(false);
-    setEditingScheduledMeal(null);
   };
 
   const handleCloseMealEdit = () => {
@@ -188,15 +203,6 @@ const CalendarPage = () => {
       labels: prev.labels.includes(label)
         ? prev.labels.filter(l => l !== label)
         : [...prev.labels, label]
-    }));
-  };
-
-  const handleSideToggle = (sideId) => {
-    setMealFormData(prev => ({
-      ...prev,
-      sideIds: prev.sideIds.includes(sideId)
-        ? prev.sideIds.filter(s => s !== sideId)
-        : [...prev.sideIds, sideId]
     }));
   };
 
@@ -275,7 +281,6 @@ const CalendarPage = () => {
       mealTime: randomMealTime,
       mealId: suggestedMeal.id,
       mealName: suggestedMeal.name,
-      selectedSideId: suggestedMeal.sideIds?.[0] || null,
       servings: 1,
       isDelivery: suggestedMeal.isDelivery || false,
       completed: false
@@ -376,7 +381,7 @@ const CalendarPage = () => {
             <button className="btn btn-secondary" onClick={handleCloseMealEdit}>
               Cancelar
             </button>
-            <button className="btn btn-primary" onClick={handleSaveMealEdit}>
+            <button className="btn btn-primary" onClick={handleSaveMealEdit} disabled={isSavingMeal}>
               💾 Guardar cambios
             </button>
           </>
@@ -390,7 +395,6 @@ const CalendarPage = () => {
           onAddIngredient={handleAddIngredient}
           onRemoveIngredient={handleRemoveIngredient}
           onLabelToggle={handleLabelToggle}
-          onSideToggle={handleSideToggle}
           onSubmit={(e) => { e.preventDefault(); handleSaveMealEdit(); }}
           datalistId="meal-edit-ingredients-datalist"
         />

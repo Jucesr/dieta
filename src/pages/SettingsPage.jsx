@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { MEAL_TIME_OPTIONS, DAYS_OF_WEEK } from '../models/types';
+import { version } from '../../package.json';
 import Loading from '../components/ui/Loading';
 import './SettingsPage.css';
 
@@ -153,7 +154,7 @@ const SettingsPage = () => {
             <span className="about-emoji">🍽️</span>
             <div>
               <h3 className="about-title">Meal Planner</h3>
-              <p className="about-version">Versión 1.0.0</p>
+              <p className="about-version">Versión {version}</p>
             </div>
           </div>
           <p className="about-desc">

@@ -6,22 +6,28 @@ import {
   mealsService as firebaseMealsService,
   ingredientsService as firebaseIngredientsService,
   mealIngredientsService as firebaseMealIngredientsService,
-  sidesService as firebaseSidesService,
-  sideIngredientsService as firebaseSideIngredientsService,
   scheduledMealsService as firebaseScheduledMealsService,
-  deliveryRulesService as firebaseDeliveryRulesService
+  deliveryRulesService as firebaseDeliveryRulesService,
+  settingsService
 } from '../services/firebaseService';
 import {
   mockMealsService,
   mockIngredientsService,
   mockMealIngredientsService,
-  mockSidesService,
-  mockSideIngredientsService,
   mockScheduledMealsService,
   mockDeliveryRulesService
 } from '../services/mockDataService';
 import { generateDayPlan, generateWeekPlan } from '../services/mealPickerService';
-import { DEFAULT_MEAL_TIMES } from '../models/types';
+import { DEFAULT_MEAL_TIMES, MEAL_TIME_OPTIONS } from '../models/types';
+
+const MEAL_TIME_VALUES = MEAL_TIME_OPTIONS.map((option) => option.value);
+
+function normalizeMealTimes(value) {
+  if (!Array.isArray(value)) return null;
+  const selected = new Set(value);
+  const ordered = MEAL_TIME_VALUES.filter((mealTime) => selected.has(mealTime));
+  return ordered.length > 0 ? ordered : null;
+}
 
 // Toggle this to use mock data instead of Firebase
 const USE_MOCK_DATA = false;
@@ -30,8 +36,6 @@ const USE_MOCK_DATA = false;
 const mealsService = USE_MOCK_DATA ? mockMealsService : firebaseMealsService;
 const ingredientsService = USE_MOCK_DATA ? mockIngredientsService : firebaseIngredientsService;
 const mealIngredientsService = USE_MOCK_DATA ? mockMealIngredientsService : firebaseMealIngredientsService;
-const sidesService = USE_MOCK_DATA ? mockSidesService : firebaseSidesService;
-const sideIngredientsService = USE_MOCK_DATA ? mockSideIngredientsService : firebaseSideIngredientsService;
 const scheduledMealsService = USE_MOCK_DATA ? mockScheduledMealsService : firebaseScheduledMealsService;
 const deliveryRulesService = USE_MOCK_DATA ? mockDeliveryRulesService : firebaseDeliveryRulesService;
 
@@ -52,8 +56,6 @@ export const AppProvider = ({ children }) => {
   const [meals, setMeals] = useState([]);
   const [ingredients, setIngredients] = useState([]);
   const [mealIngredients, setMealIngredients] = useState({});
-  const [sides, setSides] = useState([]);
-  const [sideIngredients, setSideIngredients] = useState({});
   const [scheduledMeals, setScheduledMeals] = useState([]);
   const [deliveryRules, setDeliveryRules] = useState([]);
 
@@ -61,7 +63,7 @@ export const AppProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [mealTimes, setMealTimes] = useState(DEFAULT_MEAL_TIMES);
+  const [mealTimes, setMealTimesState] = useState(DEFAULT_MEAL_TIMES);
   const [toasts, setToasts] = useState([]);
 
   // Toast notifications
@@ -82,23 +84,23 @@ export const AppProvider = ({ children }) => {
       const [
         mealsData,
         ingredientsData,
-        sidesData,
         rulesData,
         allMealIngredients,
-        allSideIngredients
+        savedMealTimes
       ] = await Promise.all([
         mealsService.getAll(),
         ingredientsService.getAll(),
-        sidesService.getAll(),
         deliveryRulesService.getAll(),
         mealIngredientsService.getAll(),
-        sideIngredientsService.getAll()
+        USE_MOCK_DATA
+          ? Promise.resolve(null)
+          : settingsService.get('mealTimes').catch(() => null)
       ]);
       
       setMeals(mealsData);
       setIngredients(ingredientsData);
-      setSides(sidesData);
       setDeliveryRules(rulesData);
+      setMealTimesState(normalizeMealTimes(savedMealTimes) || DEFAULT_MEAL_TIMES);
       
       // Group meal ingredients by mealId
       const mealIngsMap = {};
@@ -109,16 +111,6 @@ export const AppProvider = ({ children }) => {
         mealIngsMap[ing.mealId].push(ing);
       }
       setMealIngredients(mealIngsMap);
-      
-      // Group side ingredients by sideId
-      const sideIngsMap = {};
-      for (const ing of allSideIngredients) {
-        if (!sideIngsMap[ing.sideId]) {
-          sideIngsMap[ing.sideId] = [];
-        }
-        sideIngsMap[ing.sideId].push(ing);
-      }
-      setSideIngredients(sideIngsMap);
       
     } catch (err) {
       console.error('Error loading data:', err);
@@ -333,7 +325,10 @@ export const AppProvider = ({ children }) => {
 
   const updateMeal = useCallback(async (id, data, ingredientsList = null) => {
     try {
-      await mealsService.update(id, data);
+      if (data) {
+        await mealsService.update(id, data);
+        setMeals(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
+      }
       if (ingredientsList !== null) {
         await mealIngredientsService.batchUpdate(id, ingredientsList);
         setMealIngredients(prev => ({ ...prev, [id]: ingredientsList }));
@@ -341,8 +336,9 @@ export const AppProvider = ({ children }) => {
         const updatedIngredients = await ingredientsService.getAll();
         setIngredients(updatedIngredients);
       }
-      setMeals(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
-      showToast('Comida actualizada');
+      if (data || ingredientsList !== null) {
+        showToast('Comida actualizada');
+      }
     } catch (err) {
       console.error('Error updating meal:', err);
       showToast('Error al actualizar', 'error');
@@ -405,63 +401,6 @@ export const AppProvider = ({ children }) => {
     }
   }, [showToast]);
 
-  // CRUD for sides
-  const createSide = useCallback(async (data, ingredientsList = []) => {
-    try {
-      const side = await sidesService.create(data);
-      if (ingredientsList.length > 0) {
-        await sideIngredientsService.batchUpdate(side.id, ingredientsList);
-        setSideIngredients(prev => ({ ...prev, [side.id]: ingredientsList }));
-        // Reload ingredients to show any auto-created ones
-        const updatedIngredients = await ingredientsService.getAll();
-        setIngredients(updatedIngredients);
-      }
-      setSides(prev => [...prev, side]);
-      showToast('Guarnición creada');
-      return side;
-    } catch (err) {
-      console.error('Error creating side:', err);
-      showToast('Error al crear guarnición', 'error');
-      throw err;
-    }
-  }, [showToast]);
-
-  const updateSide = useCallback(async (id, data, ingredientsList = null) => {
-    try {
-      await sidesService.update(id, data);
-      if (ingredientsList !== null) {
-        await sideIngredientsService.batchUpdate(id, ingredientsList);
-        setSideIngredients(prev => ({ ...prev, [id]: ingredientsList }));
-        // Reload ingredients to show any auto-created ones
-        const updatedIngredients = await ingredientsService.getAll();
-        setIngredients(updatedIngredients);
-      }
-      setSides(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
-      showToast('Guarnición actualizada');
-    } catch (err) {
-      console.error('Error updating side:', err);
-      showToast('Error al actualizar', 'error');
-      throw err;
-    }
-  }, [showToast]);
-
-  const deleteSide = useCallback(async (id) => {
-    try {
-      await sidesService.delete(id);
-      setSides(prev => prev.filter(s => s.id !== id));
-      setSideIngredients(prev => {
-        const copy = { ...prev };
-        delete copy[id];
-        return copy;
-      });
-      showToast('Guarnición eliminada');
-    } catch (err) {
-      console.error('Error deleting side:', err);
-      showToast('Error al eliminar', 'error');
-      throw err;
-    }
-  }, [showToast]);
-
   // CRUD for delivery rules
   const createDeliveryRule = useCallback(async (data) => {
     try {
@@ -500,16 +439,27 @@ export const AppProvider = ({ children }) => {
     }
   }, [showToast]);
 
-  // Add/remove meal times
+  const setMealTimes = useCallback(async (next) => {
+    const normalized = normalizeMealTimes(next) || DEFAULT_MEAL_TIMES;
+    setMealTimesState(normalized);
+    if (USE_MOCK_DATA) return;
+    try {
+      await settingsService.set('mealTimes', normalized);
+    } catch (err) {
+      console.error('Error saving meal times:', err);
+      showToast('Error al guardar comidas del día', 'error');
+    }
+  }, [showToast]);
+
   const addMealTime = useCallback((mealTime) => {
     if (!mealTimes.includes(mealTime)) {
-      setMealTimes(prev => [...prev, mealTime]);
+      setMealTimes([...mealTimes, mealTime]);
     }
-  }, [mealTimes]);
+  }, [mealTimes, setMealTimes]);
 
   const removeMealTime = useCallback((mealTime) => {
-    setMealTimes(prev => prev.filter(t => t !== mealTime));
-  }, []);
+    setMealTimes(mealTimes.filter(t => t !== mealTime));
+  }, [mealTimes, setMealTimes]);
 
   // Load data only when user is authenticated (Firestore paths are user-scoped)
   useEffect(() => {
@@ -520,9 +470,8 @@ export const AppProvider = ({ children }) => {
       setMeals([]);
       setIngredients([]);
       setMealIngredients({});
-      setSides([]);
-      setSideIngredients({});
       setDeliveryRules([]);
+      setMealTimesState(DEFAULT_MEAL_TIMES);
       setError(null);
     }
   }, [user, loadData]);
@@ -532,8 +481,6 @@ export const AppProvider = ({ children }) => {
     meals,
     ingredients,
     mealIngredients,
-    sides,
-    sideIngredients,
     scheduledMeals,
     deliveryRules,
     mealTimes,
@@ -568,11 +515,6 @@ export const AppProvider = ({ children }) => {
     createIngredient,
     updateIngredient,
     deleteIngredient,
-    
-    // Sides CRUD
-    createSide,
-    updateSide,
-    deleteSide,
     
     // Delivery rules
     createDeliveryRule,
